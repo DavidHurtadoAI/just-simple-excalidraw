@@ -1,6 +1,6 @@
 {
   "name": "just-simple-excalidraw",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "A fully local Excalidraw editor for Obsidian.",
   "author": "David Hurtado",
@@ -18,14 +18,14 @@
   },
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   },
   "devDependencies": {
     "@rollup/rollup-win32-arm64-msvc": "4.62.4",
     "@types/node": "^24.3.0",
-    "@types/react": "^19.1.12",
-    "@types/react-dom": "^19.1.9",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
     "esbuild": "^0.25.12",
     "obsidian": "^1.13.1",
     "typescript": "^5.9.3"

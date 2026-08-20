@@ -6,40 +6,40 @@ const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url
 const releaseDirectory = path.join(projectDirectory, "dist");
 const vaultPluginDirectory = path.resolve(projectDirectory, "..", "..", "@Nexus-dev", ".obsidian", "plugins", "just-simple-excalidraw");
 const excalidrawDirectory = path.join(projectDirectory, "node_modules", "@excalidraw", "excalidraw", "dist", "prod");
-const fontCache = new Map();
+const latinExcalifont = "Excalifont/Excalifont-Regular-a88b72a24fb54c9f94e3b5fdaa7481c9.woff2";
 
-function fontDataUri(fileName) {
-  if (!fontCache.has(fileName)) {
-    fontCache.set(
-      fileName,
-      readFile(path.join(excalidrawDirectory, "fonts", fileName)).then((content) =>
-        `data:font/woff2;base64,${content.toString("base64")}`
-      )
-    );
-  }
-  return fontCache.get(fileName);
-}
-
-async function inlineFontUrls(content, extension) {
-  const pattern = extension === "js"
-    ? /(["'])\.\/fonts\/([^"']+\.woff2)\1/g
-    : /url\((["']?)\.\/fonts\/([^)'"\s]+\.woff2)\1\)/g;
+async function inlineSingleFont(content) {
+  const pattern = /(["'])\.\/fonts\/([^"']+\.woff2)\1/g;
   const matches = [...content.matchAll(pattern)];
   if (matches.length === 0) {
-    throw new Error(`No se han encontrado fuentes de Excalidraw para integrar en ${extension}.`);
+    throw new Error("No se han encontrado referencias de fuentes de Excalidraw.");
   }
 
-  let inlined = content;
-  for (const match of matches) {
-    const dataUri = await fontDataUri(match[2]);
-    const replacement = extension === "js" ? JSON.stringify(dataUri) : `url("${dataUri}")`;
-    inlined = inlined.replace(match[0], replacement);
+  const font = await readFile(path.join(excalidrawDirectory, "fonts", latinExcalifont));
+  const dataUri = `data:font/woff2;base64,${font.toString("base64")}`;
+  const compacted = content.replace(pattern, "__JSE_LATIN_FONT__");
+  const strictDirective = '"use strict";';
+  if (!compacted.startsWith(strictDirective)) {
+    throw new Error("No se ha encontrado el encabezado esperado del bundle.");
   }
+  const withFont = `${strictDirective}const __JSE_LATIN_FONT__=${JSON.stringify(dataUri)};${compacted.slice(strictDirective.length)}`;
+  if (pattern.test(withFont)) {
+    throw new Error("Quedan rutas de fuentes sin integrar.");
+  }
+  return { content: withFont, count: matches.length };
+}
 
-  if (pattern.test(inlined)) {
-    throw new Error(`Quedan rutas de fuentes sin integrar en ${extension}.`);
+function removeCssFontFaces(content) {
+  const pattern = /@font-face\s*\{[^{}]*\.\/fonts\/[^{}]*\}/g;
+  const matches = [...content.matchAll(pattern)];
+  if (matches.length === 0) {
+    throw new Error("No se han encontrado reglas CSS de fuentes de Excalidraw.");
   }
-  return { content: inlined, count: matches.length };
+  const compacted = content.replace(pattern, "");
+  if (compacted.includes("./fonts/")) {
+    throw new Error("Quedan rutas CSS de fuentes sin eliminar.");
+  }
+  return { content: compacted, count: matches.length };
 }
 
 async function removeDeprecatedArtifacts(targetDirectory) {
@@ -55,8 +55,8 @@ async function buildDistribution(targetDirectory) {
   await removeDeprecatedArtifacts(targetDirectory);
 
   const bundledJavaScript = await readFile(path.join(projectDirectory, "main.js"), "utf8");
-  const inlinedJavaScript = await inlineFontUrls(bundledJavaScript, "js");
-  await writeFile(path.join(targetDirectory, "main.js"), inlinedJavaScript.content, "utf8");
+  const compactJavaScript = await inlineSingleFont(bundledJavaScript);
+  await writeFile(path.join(targetDirectory, "main.js"), compactJavaScript.content, "utf8");
   await copyFile(path.join(projectDirectory, "manifest.json"), path.join(targetDirectory, "manifest.json"));
   await copyFile(path.join(projectDirectory, "LICENSE"), path.join(targetDirectory, "LICENSE"));
   await copyFile(path.join(projectDirectory, "THIRD_PARTY_NOTICES.md"), path.join(targetDirectory, "THIRD_PARTY_NOTICES.md"));
@@ -65,9 +65,9 @@ async function buildDistribution(targetDirectory) {
     readFile(path.join(excalidrawDirectory, "index.css"), "utf8"),
     readFile(path.join(projectDirectory, "src", "styles.css"), "utf8")
   ]);
-  const inlinedStyles = await inlineFontUrls(excalidrawCss, "css");
-  await writeFile(path.join(targetDirectory, "styles.css"), `${inlinedStyles.content}\n\n${localCss}`, "utf8");
-  console.log(`Fuentes integradas: ${inlinedJavaScript.count} en JavaScript y ${inlinedStyles.count} en CSS.`);
+  const compactStyles = removeCssFontFaces(excalidrawCss);
+  await writeFile(path.join(targetDirectory, "styles.css"), `${compactStyles.content}\n\n${localCss}`, "utf8");
+  console.log(`Bundle minimal: Mermaid excluido, ${compactJavaScript.count} referencias usan una fuente latina integrada y ${compactStyles.count} reglas CSS de fuente se han eliminado.`);
 }
 
 await buildDistribution(releaseDirectory);

@@ -1,7 +1,30 @@
 # Just Simple Excalidraw
 
 An intentionally small, local-first [Excalidraw](https://excalidraw.com/) editor
-for Obsidian. It edits portable `.excalidraw` JSON files directly in the vault.
+for Obsidian that preserves the original's brilliant simplicity. It edits
+portable `.excalidraw` JSON files directly in the vault.
+
+![Just Simple Excalidraw running in Obsidian](assets/just-simple-excalidraw-screenshot.png)
+
+## Why this plugin exists
+
+Excalidraw is brilliant because it makes drawing feel immediate. Open a canvas,
+think with your hands, and get out of the way. Just Simple Excalidraw brings
+that essential experience to an offline Obsidian vault without turning it into
+another complex workspace.
+
+The excellent [Obsidian Excalidraw plugin by zsviczian](https://github.com/zsviczian/obsidian-excalidraw-plugin)
+offers extensive integrations and a large feature set for people who need them.
+This plugin has a deliberately different goal: no feature race, no extra
+workflow layer, and no attempt to reproduce hundreds of options. It is for
+people who want the original, focused Excalidraw canvas inside Obsidian.
+
+If Excalidraw is an important part of your work, please consider supporting the
+upstream team with [Excalidraw+](https://plus.excalidraw.com/). This plugin uses
+the open-source editor locally; Excalidraw+ helps sustain the product and adds
+online services for users who need them. If you need the advanced features this
+plugin intentionally leaves out, Excalidraw+ is the better fit—and directly
+supports the people building Excalidraw.
 
 ## What it does
 
@@ -16,14 +39,39 @@ for Obsidian. It edits portable `.excalidraw` JSON files directly in the vault.
 - Follows Obsidian's light and dark theme.
 
 It deliberately does **not** add Markdown embedding, OCR, AI, collaboration,
-cloud sync, a drawing library, an account, or an export workflow.
+cloud sync, a drawing library, an account, or an export workflow. Those are
+valuable features in other tools; they are outside this plugin's purpose. The
+lean build also excludes Mermaid-to-Excalidraw conversion, web embeds, and the
+related heavy dependency tree.
+
+## Lean build and Obsidian Sync
+
+Community Plugins installs `main.js`, `manifest.json`, and `styles.css` from a
+GitHub release. Since Obsidian Sync Standard cannot sync a plugin file larger
+than 5 MB, this plugin keeps its release `main.js` below that limit.
+
+That constraint is intentional: Just Simple Excalidraw ships a focused editor,
+not every optional Excalidraw subsystem. It includes one embedded Excalifont
+subset covering Latin characters, including Spanish accents. Other scripts and
+the optional Excalidraw font variants fall back to fonts available on the local
+system. No font or code is downloaded at runtime.
+
+### What this trade-off means
+
+To remain small, local, and Sync-friendly, the plugin does not include
+Mermaid-to-Excalidraw conversion, online collaboration, cloud services, an
+account, a library, advanced integrations, or the full set of optional fonts.
+It is intended for focused, offline drawing inside a vault. If those advanced
+capabilities matter to your workflow, use
+[Excalidraw+](https://plus.excalidraw.com/): it provides the online service
+layer and helps fund ongoing Excalidraw development.
 
 ## Privacy and permissions
 
 Just Simple Excalidraw is local-first by design.
 
-- **Network:** it makes no runtime network requests and includes all required
-  Excalidraw font assets in the release bundle.
+- **Network:** it makes no runtime network requests. Its one bundled Latin font
+  subset and all editor code are included in the release.
 - **Vault files:** it reads and writes only the `.excalidraw` file you open or
   create in the vault.
 - **Files outside the vault:** only an image explicitly chosen or pasted by you
@@ -53,13 +101,17 @@ Then enable **Just Simple Excalidraw** in Obsidian.
 
 ## Use
 
-Run **Nuevo dibujo Excalidraw** from the command palette, or use the pencil
-ruler icon in the ribbon. The new file is created in the vault root using a
-timestamped `Drawing YYYY-MM-DD HH.MM.SS.excalidraw` name.
+Run **Create new Excalidraw drawing** from the command palette, or use the
+pencil ruler icon in the ribbon. The new file is created in the vault root
+using a timestamped `Drawing YYYY-MM-DD HH.MM.SS.excalidraw` name.
 
 ## Development
 
 Requires Node.js 22.13 or later and Corepack.
+
+> **Development note**
+> Just Simple Excalidraw was unapologetically vibe-coded: built iteratively
+> with AI assistance, then tested and refined inside a real Obsidian vault.
 
 ```bash
 corepack enable
@@ -67,9 +119,10 @@ pnpm install --frozen-lockfile
 pnpm run check
 ```
 
-`pnpm run check` type-checks the plugin, makes a production bundle, embeds all
-required font files, installs the built plugin into the local development vault,
-and verifies that the distributable has no external font dependency.
+`pnpm run check` type-checks the plugin, makes a production bundle without
+Mermaid, embeds the Latin font subset, installs the built plugin into the local
+development vault, and verifies both offline operation and the 5 MB Sync
+Standard file limit.
 
 For an editable development build:
 
