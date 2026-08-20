@@ -1,4 +1,4 @@
-.workspace-leaf-content[data-type="just-simple-excalidraw"]
+.workspace-leaf-content[data-type="just-simple-excalidraw-view"]
   .just-simple-excalidraw-view {
   height: 100%;
   padding: 0;
@@ -6,6 +6,59 @@
 
 .just-simple-excalidraw-view > .excalidraw {
   height: 100%;
+}
+
+/*
+ * The canvas context menu uses <hr> separators and plain buttons. Reset the
+ * generic Obsidian theme rules that otherwise turn its separators into large
+ * empty blocks and each item into an elevated control.
+ */
+.excalidraw .context-menu {
+  margin: 0;
+  padding: 0.25rem 0;
+}
+
+.excalidraw .context-menu li {
+  margin: 0;
+  padding: 0;
+}
+
+.excalidraw .context-menu button.context-menu-item {
+  box-sizing: border-box;
+  min-height: 2rem;
+  margin: 0;
+  padding: 0.375rem 0.75rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  font-size: 0.875rem;
+  letter-spacing: normal;
+  line-height: 1.25;
+}
+
+.excalidraw .context-menu .context-menu-item-separator {
+  box-sizing: border-box;
+  display: block;
+  height: 0;
+  min-height: 0;
+  margin: 0.25rem 0;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--button-gray-3);
+  box-shadow: none;
+}
+
+.excalidraw .context-menu .context-menu-item__shortcut {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  font-size: 0.7rem;
 }
 
 .just-simple-excalidraw-error {
