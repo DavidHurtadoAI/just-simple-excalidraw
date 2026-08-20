@@ -1,6 +1,6 @@
 {
   "name": "just-simple-excalidraw",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "A fully local Excalidraw editor for Obsidian.",
   "author": "David Hurtado",
