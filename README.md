@@ -112,19 +112,18 @@ using a timestamped `Drawing YYYY-MM-DD HH.MM.SS.excalidraw` name.
 
 ## Development
 
-Requires Node.js 22.13 or later and Corepack.
+Requires Node.js 22.13 or later and npm.
 
 > **Development note**
 > Just Simple Excalidraw was unapologetically vibe-coded: built iteratively
 > with AI assistance, then tested and refined inside a real Obsidian vault.
 
 ```bash
-corepack enable
-pnpm install --frozen-lockfile
-pnpm run check
+npm ci
+npm run check
 ```
 
-`pnpm run check` type-checks the plugin, makes a production bundle without
+`npm run check` type-checks the plugin, makes a production bundle without
 Mermaid, embeds the Latin font subset, installs the built plugin into the local
 development vault, and verifies both offline operation and the 5 MB Sync
 Standard file limit.
@@ -132,7 +131,7 @@ Standard file limit.
 For an editable development build:
 
 ```bash
-pnpm run dev
+npm run dev
 ```
 
 ## Release
