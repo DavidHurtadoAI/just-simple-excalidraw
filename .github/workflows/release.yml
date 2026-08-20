@@ -14,19 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.0.7
       - uses: actions/setup-node@v5
         with:
           node-version: 22.13.1
-          package-manager-cache: false
-      - run: pnpm install --frozen-lockfile
+          cache: npm
+      - run: npm ci
       - name: Check tag and manifest version
         env:
           TAG: ${{ github.ref_name }}
         run: node -e "const fs=require('fs'); const version=JSON.parse(fs.readFileSync('manifest.json')).version; if (version !== process.env.TAG) { throw new Error('Git tag must exactly match manifest.json version'); }"
-      - run: pnpm run check
+      - run: npm run check
       - name: Attest release assets
         uses: actions/attest@v4
         with:

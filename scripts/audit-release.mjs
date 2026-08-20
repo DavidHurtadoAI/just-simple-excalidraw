@@ -45,7 +45,7 @@ if (/\b(fetch|XMLHttpRequest|WebSocket)\b/.test(source)) {
 if (/\blocalStorage\b|\bsessionStorage\b/.test(source)) {
   throw new Error("The plugin source must use Obsidian persistence APIs instead of web storage.");
 }
-if (/node_modules\/\.pnpm\/(?:mermaid@|@mermaid-js\+|cytoscape@|katex@)/.test(metadataText.replaceAll("\\", "/"))) {
+if (/(?:^|\/)node_modules\/(?:\.pnpm\/)?(?:mermaid(?:@[^/]+)?|@mermaid-js(?:\+|\/)|cytoscape(?:@[^/]+)?|katex(?:@[^/]+)?)(?:\/|$)/.test(metadataText.replaceAll("\\", "/"))) {
   throw new Error("El bundle sigue incluyendo dependencias de Mermaid que esta edición mínima no ofrece.");
 }
 const contents = await readdir(distDirectory, { withFileTypes: true });

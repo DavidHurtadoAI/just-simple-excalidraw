@@ -13,13 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.0.7
       - uses: actions/setup-node@v5
         with:
           node-version: 22.13.1
-          package-manager-cache: false
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run check
-      - run: pnpm audit --prod --audit-level=high
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm audit --omit=dev --audit-level=high
