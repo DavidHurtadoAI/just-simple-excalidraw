@@ -174,7 +174,6 @@ class ExcalidrawView extends FileView {
 
   async onUnloadFile(): Promise<void> {
     await this.flushSave();
-    this.clearRecovery();
   }
 
   async onClose(): Promise<void> {
@@ -252,7 +251,6 @@ class ExcalidrawView extends FileView {
     }
 
     this.latestSnapshot = snapshot;
-    this.writeRecovery(snapshot);
     if (this.autosaveTimer !== null) {
       window.clearTimeout(this.autosaveTimer);
     }
@@ -283,7 +281,6 @@ class ExcalidrawView extends FileView {
     try {
       const document = serializeAsJSON(snapshot.elements, snapshot.appState, snapshot.files, "local");
       await this.app.vault.modify(this.file, document);
-      this.clearRecovery();
     } catch (error) {
       this.latestSnapshot = snapshot;
       new Notice(`No se pudo guardar el dibujo: ${error instanceof Error ? error.message : "error desconocido"}`);
@@ -304,26 +301,4 @@ class ExcalidrawView extends FileView {
     new Notice("El archivo cambió fuera de esta vista. El autoguardado se ha detenido; cierra y vuelve a abrir la pestaña para cargar la versión nueva.", 0);
   }
 
-  private recoveryKey(): string | null {
-    return this.file ? `${this.plugin.manifest.id}:recovery:${this.file.path}` : null;
-  }
-
-  private writeRecovery(snapshot: SceneSnapshot): void {
-    const key = this.recoveryKey();
-    if (!key) {
-      return;
-    }
-    try {
-      window.localStorage.setItem(key, serializeAsJSON(snapshot.elements, snapshot.appState, snapshot.files, "local"));
-    } catch {
-      // Recovery is best effort. Vault persistence remains the source of truth.
-    }
-  }
-
-  private clearRecovery(): void {
-    const key = this.recoveryKey();
-    if (key) {
-      window.localStorage.removeItem(key);
-    }
-  }
 }

@@ -1,9 +1,9 @@
 {
   "id": "just-simple-excalidraw",
   "name": "Just Simple Excalidraw",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minAppVersion": "1.13.7",
-  "description": "A local-first Excalidraw editor for native .excalidraw files in Obsidian.",
+  "description": "A local-first Excalidraw editor for native .excalidraw files.",
   "author": "David Hurtado",
   "authorUrl": "https://github.com/DavidHurtadoAI",
   "isDesktopOnly": true
