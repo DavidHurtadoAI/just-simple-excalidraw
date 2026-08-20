@@ -50,25 +50,29 @@ async function removeDeprecatedArtifacts(targetDirectory) {
   ]);
 }
 
-async function buildDistribution(targetDirectory) {
+async function buildDistribution(targetDirectory, compactJavaScript, compactStyles) {
   await mkdir(targetDirectory, { recursive: true });
   await removeDeprecatedArtifacts(targetDirectory);
 
-  const bundledJavaScript = await readFile(path.join(projectDirectory, "main.js"), "utf8");
-  const compactJavaScript = await inlineSingleFont(bundledJavaScript);
-  await writeFile(path.join(targetDirectory, "main.js"), compactJavaScript.content, "utf8");
+  await writeFile(path.join(targetDirectory, "main.js"), compactJavaScript, "utf8");
   await copyFile(path.join(projectDirectory, "manifest.json"), path.join(targetDirectory, "manifest.json"));
   await copyFile(path.join(projectDirectory, "LICENSE"), path.join(targetDirectory, "LICENSE"));
   await copyFile(path.join(projectDirectory, "THIRD_PARTY_NOTICES.md"), path.join(targetDirectory, "THIRD_PARTY_NOTICES.md"));
-
-  const [excalidrawCss, localCss] = await Promise.all([
-    readFile(path.join(excalidrawDirectory, "index.css"), "utf8"),
-    readFile(path.join(projectDirectory, "src", "styles.css"), "utf8")
-  ]);
-  const compactStyles = removeCssFontFaces(excalidrawCss);
-  await writeFile(path.join(targetDirectory, "styles.css"), `${compactStyles.content}\n\n${localCss}`, "utf8");
-  console.log(`Bundle minimal: Mermaid excluido, ${compactJavaScript.count} referencias usan una fuente latina integrada y ${compactStyles.count} reglas CSS de fuente se han eliminado.`);
+  await writeFile(path.join(targetDirectory, "styles.css"), compactStyles, "utf8");
 }
 
-await buildDistribution(releaseDirectory);
-await buildDistribution(vaultPluginDirectory);
+const [bundledJavaScript, excalidrawCss, localCss] = await Promise.all([
+  readFile(path.join(projectDirectory, "main.js"), "utf8"),
+  readFile(path.join(excalidrawDirectory, "index.css"), "utf8"),
+  readFile(path.join(projectDirectory, "src", "styles.css"), "utf8")
+]);
+const compactJavaScript = await inlineSingleFont(bundledJavaScript);
+const compactStyles = removeCssFontFaces(excalidrawCss);
+const releaseStyles = `${compactStyles.content}\n\n${localCss}`;
+
+// Keep the root build artifact identical to the published one. Obsidian's
+// reproducibility check compares this file with the release asset.
+await writeFile(path.join(projectDirectory, "main.js"), compactJavaScript.content, "utf8");
+await buildDistribution(releaseDirectory, compactJavaScript.content, releaseStyles);
+await buildDistribution(vaultPluginDirectory, compactJavaScript.content, releaseStyles);
+console.log(`Bundle minimal: Mermaid excluido, ${compactJavaScript.count} referencias usan una fuente latina integrada y ${compactStyles.count} reglas CSS de fuente se han eliminado.`);
