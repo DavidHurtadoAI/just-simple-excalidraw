@@ -71,6 +71,8 @@ function ExcalidrawCanvas({ initialData, ...props }: ExcalidrawCanvasProps) {
     detectScroll: false,
     handleKeyboardGlobally: false,
     aiEnabled: false,
+    validateEmbeddable: false,
+    showDeprecatedFonts: false,
     UIOptions: {
       canvasActions: {
         clearCanvas: true,
@@ -100,10 +102,10 @@ export default class JustSimpleExcalidrawPlugin extends Plugin {
 
     this.addCommand({
       id: "new-excalidraw-drawing",
-      name: "Nuevo dibujo Excalidraw",
+      name: "Create new Excalidraw drawing",
       callback: () => void this.createDrawing()
     });
-    this.addRibbonIcon("pencil-ruler", "Nuevo dibujo Excalidraw", () => void this.createDrawing());
+    this.addRibbonIcon("pencil-ruler", "Create new Excalidraw drawing", () => void this.createDrawing());
   }
 
   async createDrawing(parentPath = ""): Promise<TFile> {

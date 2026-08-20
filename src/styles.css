@@ -1,6 +1,7 @@
-.just-simple-excalidraw-view {
+.workspace-leaf-content[data-type="just-simple-excalidraw"]
+  .just-simple-excalidraw-view {
   height: 100%;
-  padding: 0 !important;
+  padding: 0;
 }
 
 .just-simple-excalidraw-view > .excalidraw {

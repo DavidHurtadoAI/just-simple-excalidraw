@@ -7,11 +7,16 @@ import { writeFile } from "node:fs/promises";
 
 const production = process.argv[2] === "production";
 const projectDirectory = path.dirname(fileURLToPath(import.meta.url));
+const excalidrawProductionEntry = path.join(projectDirectory, "node_modules", "@excalidraw", "excalidraw", "dist", "prod", "index.js");
 
 const context = await esbuild.context({
   absWorkingDir: projectDirectory,
   entryPoints: [path.join(projectDirectory, "main.ts")],
   bundle: true,
+  alias: {
+    "@excalidraw/excalidraw": excalidrawProductionEntry,
+    "@excalidraw/mermaid-to-excalidraw": path.join(projectDirectory, "src", "mermaid-disabled.ts")
+  },
   external: ["obsidian", "electron", ...builtinModules],
   format: "cjs",
   target: "es2022",
