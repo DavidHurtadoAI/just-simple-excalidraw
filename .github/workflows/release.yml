@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags: ["*"]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.13.1
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Check tag and manifest version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node -e "const fs=require('fs'); const version=JSON.parse(fs.readFileSync('manifest.json')).version; if (version !== process.env.TAG) { throw new Error('Git tag must exactly match manifest.json version'); }"
+      - run: pnpm run check
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/main.js
+            dist/manifest.json
+            dist/styles.css

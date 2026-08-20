@@ -1,0 +1,22 @@
+.just-simple-excalidraw-view {
+  height: 100%;
+  padding: 0 !important;
+}
+
+.just-simple-excalidraw-view > .excalidraw {
+  height: 100%;
+}
+
+.just-simple-excalidraw-error {
+  max-width: 42rem;
+  margin: 3rem auto;
+  padding: 1.5rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+
+.just-simple-excalidraw-error pre {
+  overflow: auto;
+  white-space: pre-wrap;
+}
