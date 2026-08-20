@@ -6,6 +6,8 @@ on:
 
 permissions:
   contents: write
+  attestations: write
+  id-token: write
 
 jobs:
   publish:
@@ -25,6 +27,12 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: node -e "const fs=require('fs'); const version=JSON.parse(fs.readFileSync('manifest.json')).version; if (version !== process.env.TAG) { throw new Error('Git tag must exactly match manifest.json version'); }"
       - run: pnpm run check
+      - name: Attest release assets
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            dist/main.js
+            dist/styles.css
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:

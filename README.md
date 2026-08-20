@@ -74,11 +74,16 @@ Just Simple Excalidraw is local-first by design.
   subset and all editor code are included in the release.
 - **Vault files:** it reads and writes only the `.excalidraw` file you open or
   create in the vault.
+- **Clipboard:** standard copy and paste actions, including pasting an image,
+  run only after you invoke them. The plugin does not read the clipboard in the
+  background.
 - **Files outside the vault:** only an image explicitly chosen or pasted by you
   can be read; it is embedded into the active drawing. Images over 10 MiB are
   rejected.
-- **Local storage:** an unsaved recovery copy may be held in Obsidian's local
-  storage and is cleared after a successful save. It never leaves the device.
+- **Browser storage:** the plugin itself does not persist vault data in
+  `localStorage` or `sessionStorage`; the drawing file in your vault is the
+  source of truth. The bundled upstream Excalidraw runtime contains browser
+  storage support for its own optional editor state.
 - **Telemetry, ads, accounts and payments:** none.
 
 ## Installation

@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.2 - 2026-08-20
+
+- Removed the redundant word “Obsidian” from the plugin manifest description.
+- Added GitHub artifact attestations for `main.js` and `styles.css`.
+- Removed unused web-storage recovery and Excalidraw's dynamic error-constructor helper.
+
 ## 0.1.1 - 2026-08-20
 
 - Rebuilt the editor without Mermaid conversion and its dependency tree.

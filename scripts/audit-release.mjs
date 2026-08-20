@@ -36,8 +36,14 @@ if (sourceStyles.includes("!important")) {
 if (/createElement\(\s*["']script["']/.test(main)) {
   throw new Error("The bundle must not create dynamic <script> elements.");
 }
+if (/\b(?:eval\s*\(|new Function\b)/.test(main)) {
+  throw new Error("The bundle must not execute dynamically generated code.");
+}
 if (/\b(fetch|XMLHttpRequest|WebSocket)\b/.test(source)) {
   throw new Error("El código fuente contiene una API de red que contradice la promesa de funcionamiento local.");
+}
+if (/\blocalStorage\b|\bsessionStorage\b/.test(source)) {
+  throw new Error("The plugin source must use Obsidian persistence APIs instead of web storage.");
 }
 if (/node_modules\/\.pnpm\/(?:mermaid@|@mermaid-js\+|cytoscape@|katex@)/.test(metadataText.replaceAll("\\", "/"))) {
   throw new Error("El bundle sigue incluyendo dependencias de Mermaid que esta edición mínima no ofrece.");
