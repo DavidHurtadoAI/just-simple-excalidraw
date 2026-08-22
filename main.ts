@@ -153,6 +153,10 @@ export default class JustSimpleExcalidrawPlugin extends Plugin {
     return true;
   }
 
+  getFileOwner(file: TFile): ExcalidrawView | null {
+    return this.fileOwners.get(file) ?? null;
+  }
+
   releaseFile(file: TFile, view: ExcalidrawView): void {
     if (this.fileOwners.get(file) === view) {
       this.fileOwners.delete(file);
@@ -175,7 +179,7 @@ class ExcalidrawView extends FileView {
   private externalChangeDetected = false;
   private readonly pendingSaves = new Set<Promise<void>>();
 
-  constructor(leaf: WorkspaceLeaf, private readonly plugin: JustSimpleExcalidrawPlugin) {
+  constructor(readonly leaf: WorkspaceLeaf, private readonly plugin: JustSimpleExcalidrawPlugin) {
     super(leaf);
   }
 
@@ -208,16 +212,22 @@ class ExcalidrawView extends FileView {
       }
     }
 
+    const existingOwner = this.plugin.getFileOwner(file);
+    if (existingOwner && existingOwner !== this) {
+      this.activeFile = null;
+      this.ownsActiveFile = false;
+      this.externalChangeDetected = false;
+      this.latestSnapshot = null;
+      existingOwner.activate();
+      this.leaf.detach();
+      return;
+    }
+
     this.activeFile = file;
     this.ownsActiveFile = this.plugin.claimFile(file, this);
     this.externalChangeDetected = false;
     this.latestSnapshot = null;
     this.recreateRoot();
-
-    if (!this.ownsActiveFile) {
-      this.renderConcurrentEditorError();
-      return;
-    }
 
     try {
       const parsed = JSON.parse(await this.app.vault.cachedRead(file)) as unknown;
@@ -258,6 +268,10 @@ class ExcalidrawView extends FileView {
     this.activeFile = null;
     this.ownsActiveFile = false;
     this.unmountRoot();
+  }
+
+  activate(): void {
+    this.app.workspace.setActiveLeaf(this.leaf, { focus: true });
   }
 
   private isCurrentLoad(file: TFile, loadGeneration: number): boolean {
@@ -331,14 +345,6 @@ class ExcalidrawView extends FileView {
     button.addEventListener("click", () => {
       void this.plugin.createDrawing(this.file?.parent?.path ?? "");
     });
-  }
-
-  private renderConcurrentEditorError(): void {
-    this.unmountRoot();
-    this.contentEl.empty();
-    const panel = this.contentEl.createDiv({ cls: "just-simple-excalidraw-error" });
-    panel.createEl("h3", { text: "Este dibujo ya está abierto" });
-    panel.createEl("p", { text: "Para evitar conflictos y pérdida de datos, este plugin permite editar un dibujo en una sola pestaña. Cierra la otra pestaña y vuelve a abrir este archivo." });
   }
 
   private queueSave(file: TFile, snapshot: SceneSnapshot): void {
