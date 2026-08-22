@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.7 - 2026-08-22
+
+- Prevented stale asynchronous file loads from replacing the current canvas.
+- Prevented concurrent editing of the same drawing in multiple plugin tabs.
+- Saved pending changes before reloading the same drawing and strengthened scene
+  validation before an editor is mounted.
+
 ## 0.1.6 - 2026-08-22
 
 - Fixed a critical data-loss bug that could overwrite a drawing with the scene

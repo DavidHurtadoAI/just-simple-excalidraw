@@ -96,10 +96,15 @@ const bundle = await build({
 });
 
 const files = new Map([
-  ["A.excalidraw", JSON.stringify({ elements: [{ id: "A-original" }], appState: {}, files: {} })],
-  ["B.excalidraw", JSON.stringify({ elements: [{ id: "B-original" }], appState: {}, files: {} })]
+  ["A.excalidraw", JSON.stringify({ elements: [{ id: "A-original", type: "rectangle" }], appState: {}, files: {} })],
+  ["B.excalidraw", JSON.stringify({ elements: [{ id: "B-original", type: "rectangle" }], appState: {}, files: {} })],
+  ["C.excalidraw", JSON.stringify({ elements: [{ id: "C-original", type: "rectangle" }], appState: {}, files: {} })],
+  ["D.excalidraw", JSON.stringify({ elements: [{ id: "D-original", type: "rectangle" }], appState: {}, files: {} })],
+  ["E.excalidraw", JSON.stringify({ elements: [{ id: "E-original", type: "rectangle" }], appState: {}, files: {} })],
+  ["Malformed.excalidraw", JSON.stringify({ elements: [{ id: "missing-type" }], appState: {}, files: {} })]
 ]);
 const writes = [];
+const delayedReads = new Map();
 
 globalThis.document = { body: { classList: { contains: () => false } } };
 globalThis.window = globalThis;
@@ -111,14 +116,14 @@ globalThis.__testContentEl = {
   empty() {},
   addClass() {},
   createDiv() {
-    throw new Error("The regression test should not render an error panel.");
+    return { createEl() { return { addEventListener() {} }; } };
   }
 };
 globalThis.__renderedCanvases = [];
 globalThis.__testApp = {
   vault: {
     on() { return {}; },
-    async cachedRead(file) { return files.get(file.path); },
+    async cachedRead(file) { return delayedReads.get(file.path) ?? files.get(file.path); },
     async modify(file, document) {
       writes.push({ path: file.path, document });
       files.set(file.path, document);
@@ -137,30 +142,85 @@ await view.onOpen();
 
 const fileA = new globalThis.__testTFile("A.excalidraw");
 const fileB = new globalThis.__testTFile("B.excalidraw");
+const fileC = new globalThis.__testTFile("C.excalidraw");
+const fileD = new globalThis.__testTFile("D.excalidraw");
+const fileE = new globalThis.__testTFile("E.excalidraw");
+const malformedFile = new globalThis.__testTFile("Malformed.excalidraw");
 
 view.file = fileA;
 await view.onLoadFile(fileA);
 const canvasA = globalThis.__renderedCanvases.at(-1);
-canvasA.onChange([{ id: "A-edited" }], {}, {});
+canvasA.onChange([{ id: "A-edited", type: "rectangle" }], {}, {});
 
 view.file = fileB;
 await view.onLoadFile(fileB);
 const canvasB = globalThis.__renderedCanvases.at(-1);
 
 assert.notEqual(canvasA, canvasB, "Opening another file must mount a new Excalidraw canvas.");
-assert.deepEqual(canvasB.initialData.elements, [{ id: "B-original" }], "The second file must not inherit the first scene.");
-assert.deepEqual(JSON.parse(writes[0].document).elements, [{ id: "A-edited" }], "The pending save for A must write to A.");
+assert.deepEqual(canvasB.initialData.elements, [{ id: "B-original", type: "rectangle" }], "The second file must not inherit the first scene.");
+assert.deepEqual(JSON.parse(writes[0].document).elements, [{ id: "A-edited", type: "rectangle" }], "The pending save for A must write to A.");
 assert.equal(writes[0].path, "A.excalidraw");
 
-canvasA.onChange([{ id: "stale-A" }], {}, {});
+canvasA.onChange([{ id: "stale-A", type: "rectangle" }], {}, {});
 assert.equal(writes.length, 1, "A stale callback must not queue a save for the active file.");
 
-canvasB.onChange([{ id: "B-edited" }], {}, {});
+canvasB.onChange([{ id: "B-edited", type: "rectangle" }], {}, {});
 await view.onUnloadFile(fileA);
 await view.onUnloadFile(fileB);
 
 assert.equal(writes.length, 2);
 assert.equal(writes[1].path, "B.excalidraw");
-assert.deepEqual(JSON.parse(writes[1].document).elements, [{ id: "B-edited" }]);
+assert.deepEqual(JSON.parse(writes[1].document).elements, [{ id: "B-edited", type: "rectangle" }]);
+
+let resolveDelayedRead;
+delayedReads.set("C.excalidraw", new Promise((resolve) => {
+  resolveDelayedRead = resolve;
+}));
+view.file = fileC;
+const delayedLoad = view.onLoadFile(fileC);
+
+view.file = fileE;
+await view.onLoadFile(fileE);
+const canvasE = globalThis.__renderedCanvases.at(-1);
+resolveDelayedRead(files.get("C.excalidraw"));
+await delayedLoad;
+
+assert.equal(globalThis.__renderedCanvases.at(-1), canvasE, "A stale read must not replace the current canvas.");
+await view.onUnloadFile(fileE);
+
+delayedReads.delete("C.excalidraw");
+view.file = fileC;
+await view.onLoadFile(fileC);
+const canvasC = globalThis.__renderedCanvases.at(-1);
+canvasC.onChange([{ id: "C-edited", type: "rectangle" }], {}, {});
+await view.onLoadFile(fileC);
+
+assert.equal(writes.at(-1).path, "C.excalidraw", "Reloading the same file must flush its pending snapshot.");
+assert.deepEqual(JSON.parse(writes.at(-1).document).elements, [{ id: "C-edited", type: "rectangle" }]);
+await view.onUnloadFile(fileC);
+
+const ownerView = globalThis.__testViewFactory(new (class {})());
+const duplicateView = globalThis.__testViewFactory(new (class {})());
+await ownerView.onOpen();
+await duplicateView.onOpen();
+ownerView.file = fileD;
+await ownerView.onLoadFile(fileD);
+const canvasD = globalThis.__renderedCanvases.at(-1);
+canvasD.onChange([{ id: "D-edited", type: "rectangle" }], {}, {});
+const canvasesBeforeDuplicate = globalThis.__renderedCanvases.length;
+duplicateView.file = fileD;
+await duplicateView.onLoadFile(fileD);
+
+assert.equal(globalThis.__renderedCanvases.length, canvasesBeforeDuplicate, "A second view of the same file must not become editable.");
+await ownerView.onUnloadFile(fileD);
+assert.equal(writes.at(-1).path, "D.excalidraw");
+assert.deepEqual(JSON.parse(writes.at(-1).document).elements, [{ id: "D-edited", type: "rectangle" }]);
+await duplicateView.onUnloadFile(fileD);
+
+const canvasesBeforeMalformedFile = globalThis.__renderedCanvases.length;
+view.file = malformedFile;
+await view.onLoadFile(malformedFile);
+assert.equal(globalThis.__renderedCanvases.length, canvasesBeforeMalformedFile, "Malformed scene data must not mount an editable canvas.");
+await view.onUnloadFile(malformedFile);
 
 console.log("File isolation regression test passed.");
