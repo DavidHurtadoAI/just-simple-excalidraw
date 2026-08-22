@@ -38,14 +38,23 @@ function emptyScene(): StoredScene {
   return { elements: [], appState: {}, files: {} };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function isStoredScene(value: unknown): value is StoredScene {
-  if (typeof value !== "object" || value === null) {
+  if (!isRecord(value)) {
     return false;
   }
 
-  const scene = value as Record<string, unknown>;
-  return Array.isArray(scene.elements) && typeof scene.appState === "object" && scene.appState !== null &&
-    (scene.files === undefined || (typeof scene.files === "object" && scene.files !== null));
+  const { elements, appState, files } = value;
+  return Array.isArray(elements) && elements.every((element) =>
+    isRecord(element) && typeof element.id === "string" && typeof element.type === "string"
+  ) && isRecord(appState) && (files === undefined || (
+    isRecord(files) && Object.values(files).every((file) =>
+      isRecord(file) && typeof file.id === "string" && typeof file.mimeType === "string" && typeof file.dataURL === "string"
+    )
+  ));
 }
 
 function imageByteLength(dataURL: string): number {
@@ -101,6 +110,8 @@ function ExcalidrawCanvas({ initialData, ...props }: ExcalidrawCanvasProps) {
 }
 
 export default class JustSimpleExcalidrawPlugin extends Plugin {
+  private readonly fileOwners = new Map<TFile, ExcalidrawView>();
+
   async onload(): Promise<void> {
     this.registerView(VIEW_TYPE_EXCALIDRAW, (leaf) => new ExcalidrawView(leaf, this));
     this.registerExtensions(["excalidraw"], VIEW_TYPE_EXCALIDRAW);
@@ -132,6 +143,25 @@ export default class JustSimpleExcalidrawPlugin extends Plugin {
     await this.app.workspace.getLeaf("tab").openFile(file);
     return file;
   }
+
+  claimFile(file: TFile, view: ExcalidrawView): boolean {
+    const owner = this.fileOwners.get(file);
+    if (owner && owner !== view) {
+      return false;
+    }
+    this.fileOwners.set(file, view);
+    return true;
+  }
+
+  releaseFile(file: TFile, view: ExcalidrawView): void {
+    if (this.fileOwners.get(file) === view) {
+      this.fileOwners.delete(file);
+    }
+  }
+
+  ownsFile(file: TFile, view: ExcalidrawView): boolean {
+    return this.fileOwners.get(file) === view;
+  }
 }
 
 class ExcalidrawView extends FileView {
@@ -139,6 +169,8 @@ class ExcalidrawView extends FileView {
   private autosaveTimer: number | null = null;
   private latestSnapshot: PendingSave | null = null;
   private activeFile: TFile | null = null;
+  private ownsActiveFile = false;
+  private loadGeneration = 0;
   private readonly writingFiles = new Set<TFile>();
   private externalChangeDetected = false;
   private readonly pendingSaves = new Set<Promise<void>>();
@@ -167,22 +199,39 @@ class ExcalidrawView extends FileView {
   }
 
   async onLoadFile(file: TFile): Promise<void> {
-    if (this.activeFile && this.activeFile !== file) {
-      await this.flushSave(this.activeFile);
+    const loadGeneration = ++this.loadGeneration;
+    const previousFile = this.activeFile;
+    if (previousFile) {
+      await this.flushSave(previousFile);
+      if (previousFile !== file) {
+        this.plugin.releaseFile(previousFile, this);
+      }
     }
 
     this.activeFile = file;
+    this.ownsActiveFile = this.plugin.claimFile(file, this);
     this.externalChangeDetected = false;
     this.latestSnapshot = null;
     this.recreateRoot();
 
+    if (!this.ownsActiveFile) {
+      this.renderConcurrentEditorError();
+      return;
+    }
+
     try {
       const parsed = JSON.parse(await this.app.vault.cachedRead(file)) as unknown;
+      if (!this.isCurrentLoad(file, loadGeneration)) {
+        return;
+      }
       if (!isStoredScene(parsed)) {
         throw new Error("El archivo no contiene una escena Excalidraw válida.");
       }
       this.renderCanvas(file, parsed);
     } catch (error) {
+      if (!this.isCurrentLoad(file, loadGeneration)) {
+        return;
+      }
       this.renderCorruptFileError(error instanceof Error ? error.message : "JSON inválido.");
     }
   }
@@ -190,7 +239,10 @@ class ExcalidrawView extends FileView {
   async onUnloadFile(file: TFile): Promise<void> {
     await this.flushSave(file);
     if (this.activeFile === file) {
+      this.loadGeneration += 1;
+      this.plugin.releaseFile(file, this);
       this.activeFile = null;
+      this.ownsActiveFile = false;
       this.externalChangeDetected = false;
       this.unmountRoot();
     }
@@ -199,7 +251,18 @@ class ExcalidrawView extends FileView {
   async onClose(): Promise<void> {
     await this.flushSave(this.activeFile);
     await Promise.all([...this.pendingSaves]);
+    this.loadGeneration += 1;
+    if (this.activeFile) {
+      this.plugin.releaseFile(this.activeFile, this);
+    }
+    this.activeFile = null;
+    this.ownsActiveFile = false;
     this.unmountRoot();
+  }
+
+  private isCurrentLoad(file: TFile, loadGeneration: number): boolean {
+    return this.loadGeneration === loadGeneration && this.activeFile === file && this.file === file &&
+      this.ownsActiveFile && this.plugin.ownsFile(file, this);
   }
 
   private recreateRoot(): void {
@@ -270,8 +333,17 @@ class ExcalidrawView extends FileView {
     });
   }
 
+  private renderConcurrentEditorError(): void {
+    this.unmountRoot();
+    this.contentEl.empty();
+    const panel = this.contentEl.createDiv({ cls: "just-simple-excalidraw-error" });
+    panel.createEl("h3", { text: "Este dibujo ya está abierto" });
+    panel.createEl("p", { text: "Para evitar conflictos y pérdida de datos, este plugin permite editar un dibujo en una sola pestaña. Cierra la otra pestaña y vuelve a abrir este archivo." });
+  }
+
   private queueSave(file: TFile, snapshot: SceneSnapshot): void {
-    if (this.externalChangeDetected || file !== this.activeFile || file !== this.file) {
+    if (this.externalChangeDetected || !this.ownsActiveFile || file !== this.activeFile || file !== this.file ||
+      !this.plugin.ownsFile(file, this)) {
       return;
     }
 
