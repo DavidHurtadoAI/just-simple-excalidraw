@@ -15,7 +15,8 @@ const mocks = {
     }
     globalThis.__testTFile = TFile;
     export class FileView {
-      constructor() {
+      constructor(leaf) {
+        this.leaf = leaf;
         this.file = null;
         this.app = globalThis.__testApp;
         this.contentEl = globalThis.__testContentEl;
@@ -36,7 +37,11 @@ const mocks = {
     export class Notice {
       constructor() {}
     }
-    export class WorkspaceLeaf {}
+    export class WorkspaceLeaf {
+      constructor() { this.detached = false; }
+      detach() { this.detached = true; }
+    }
+    globalThis.__testWorkspaceLeaf = WorkspaceLeaf;
     export function normalizePath(path) { return path; }
   `,
   react: `
@@ -129,7 +134,10 @@ globalThis.__testApp = {
       files.set(file.path, document);
     }
   },
-  workspace: { getLeaf() { throw new Error("Not used by this test."); } }
+  workspace: {
+    getLeaf() { throw new Error("Not used by this test."); },
+    setActiveLeaf(leaf, options) { globalThis.__activeLeaf = { leaf, options }; }
+  }
 };
 
 const source = bundle.outputFiles[0].text;
@@ -199,8 +207,10 @@ assert.equal(writes.at(-1).path, "C.excalidraw", "Reloading the same file must f
 assert.deepEqual(JSON.parse(writes.at(-1).document).elements, [{ id: "C-edited", type: "rectangle" }]);
 await view.onUnloadFile(fileC);
 
-const ownerView = globalThis.__testViewFactory(new (class {})());
-const duplicateView = globalThis.__testViewFactory(new (class {})());
+const ownerLeaf = new globalThis.__testWorkspaceLeaf();
+const duplicateLeaf = new globalThis.__testWorkspaceLeaf();
+const ownerView = globalThis.__testViewFactory(ownerLeaf);
+const duplicateView = globalThis.__testViewFactory(duplicateLeaf);
 await ownerView.onOpen();
 await duplicateView.onOpen();
 ownerView.file = fileD;
@@ -212,6 +222,8 @@ duplicateView.file = fileD;
 await duplicateView.onLoadFile(fileD);
 
 assert.equal(globalThis.__renderedCanvases.length, canvasesBeforeDuplicate, "A second view of the same file must not become editable.");
+assert.deepEqual(globalThis.__activeLeaf, { leaf: ownerLeaf, options: { focus: true } }, "Opening an already-open drawing must focus its existing tab.");
+assert.equal(duplicateLeaf.detached, true, "The duplicate tab must be removed instead of showing a concurrent-editor error.");
 await ownerView.onUnloadFile(fileD);
 assert.equal(writes.at(-1).path, "D.excalidraw");
 assert.deepEqual(JSON.parse(writes.at(-1).document).elements, [{ id: "D-edited", type: "rectangle" }]);
