@@ -23,6 +23,11 @@ type SceneSnapshot = {
   files: BinaryFiles;
 };
 
+type PendingSave = {
+  file: TFile;
+  snapshot: SceneSnapshot;
+};
+
 type StoredScene = ExcalidrawInitialDataState & {
   files?: BinaryFiles;
 };
@@ -132,10 +137,11 @@ export default class JustSimpleExcalidrawPlugin extends Plugin {
 class ExcalidrawView extends FileView {
   private root: Root | null = null;
   private autosaveTimer: number | null = null;
-  private latestSnapshot: SceneSnapshot | null = null;
-  private writing = false;
+  private latestSnapshot: PendingSave | null = null;
+  private activeFile: TFile | null = null;
+  private readonly writingFiles = new Set<TFile>();
   private externalChangeDetected = false;
-  private saveInProgress: Promise<void> | null = null;
+  private readonly pendingSaves = new Set<Promise<void>>();
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: JustSimpleExcalidrawPlugin) {
     super(leaf);
@@ -154,40 +160,66 @@ class ExcalidrawView extends FileView {
     this.contentEl.addClass("just-simple-excalidraw-view");
     this.root = createRoot(this.contentEl);
     this.registerEvent(this.app.vault.on("modify", (file) => {
-      if (file === this.file && !this.writing) {
-        this.stopForExternalChange();
+      if (file instanceof TFile && file === this.activeFile && !this.writingFiles.has(file)) {
+        this.stopForExternalChange(file);
       }
     }));
   }
 
   async onLoadFile(file: TFile): Promise<void> {
+    if (this.activeFile && this.activeFile !== file) {
+      await this.flushSave(this.activeFile);
+    }
+
+    this.activeFile = file;
+    this.externalChangeDetected = false;
+    this.latestSnapshot = null;
+    this.recreateRoot();
+
     try {
       const parsed = JSON.parse(await this.app.vault.cachedRead(file)) as unknown;
       if (!isStoredScene(parsed)) {
         throw new Error("El archivo no contiene una escena Excalidraw válida.");
       }
-      this.renderCanvas(parsed);
+      this.renderCanvas(file, parsed);
     } catch (error) {
       this.renderCorruptFileError(error instanceof Error ? error.message : "JSON inválido.");
     }
   }
 
-  async onUnloadFile(): Promise<void> {
-    await this.flushSave();
+  async onUnloadFile(file: TFile): Promise<void> {
+    await this.flushSave(file);
+    if (this.activeFile === file) {
+      this.activeFile = null;
+      this.externalChangeDetected = false;
+      this.unmountRoot();
+    }
   }
 
   async onClose(): Promise<void> {
-    await this.flushSave();
+    await this.flushSave(this.activeFile);
+    await Promise.all([...this.pendingSaves]);
+    this.unmountRoot();
+  }
+
+  private recreateRoot(): void {
+    this.unmountRoot();
+    this.contentEl.empty();
+    this.root = createRoot(this.contentEl);
+  }
+
+  private unmountRoot(): void {
     this.root?.unmount();
     this.root = null;
   }
 
-  private renderCanvas(scene: StoredScene): void {
+  private renderCanvas(file: TFile, scene: StoredScene): void {
     if (!this.root) {
       return;
     }
 
     this.root.render(createElement(ExcalidrawCanvas, {
+      key: file.path,
       initialData: scene,
       theme: document.body.classList.contains("theme-dark") ? THEME.DARK : THEME.LIGHT,
       detectScroll: false,
@@ -220,14 +252,13 @@ class ExcalidrawView extends FileView {
         return false;
       },
       onChange: (elements: readonly OrderedExcalidrawElement[], appState: AppState, files: BinaryFiles): void => {
-        this.queueSave({ elements, appState, files });
+        this.queueSave(file, { elements, appState, files });
       }
     }));
   }
 
   private renderCorruptFileError(message: string): void {
-    this.root?.unmount();
-    this.root = null;
+    this.unmountRoot();
     this.contentEl.empty();
     const panel = this.contentEl.createDiv({ cls: "just-simple-excalidraw-error" });
     panel.createEl("h3", { text: "No se puede abrir este dibujo" });
@@ -239,8 +270,8 @@ class ExcalidrawView extends FileView {
     });
   }
 
-  private queueSave(snapshot: SceneSnapshot): void {
-    if (this.externalChangeDetected) {
+  private queueSave(file: TFile, snapshot: SceneSnapshot): void {
+    if (this.externalChangeDetected || file !== this.activeFile || file !== this.file) {
       return;
     }
 
@@ -250,47 +281,50 @@ class ExcalidrawView extends FileView {
       return;
     }
 
-    this.latestSnapshot = snapshot;
+    this.latestSnapshot = { file, snapshot };
     if (this.autosaveTimer !== null) {
       window.clearTimeout(this.autosaveTimer);
     }
-    this.autosaveTimer = window.setTimeout(() => void this.flushSave(), AUTOSAVE_DELAY_MS);
+    this.autosaveTimer = window.setTimeout(() => void this.flushSave(file), AUTOSAVE_DELAY_MS);
   }
 
-  private async flushSave(): Promise<void> {
+  private async flushSave(file: TFile | null): Promise<void> {
+    const pending = this.latestSnapshot;
+    if (!file || !pending || pending.file !== file || (this.externalChangeDetected && file === this.activeFile)) {
+      return;
+    }
+
     if (this.autosaveTimer !== null) {
       window.clearTimeout(this.autosaveTimer);
       this.autosaveTimer = null;
     }
-    if (!this.latestSnapshot || !this.file || this.externalChangeDetected) {
-      return;
-    }
-
-    const snapshot = this.latestSnapshot;
     this.latestSnapshot = null;
-    this.saveInProgress = this.save(snapshot);
-    await this.saveInProgress;
-    this.saveInProgress = null;
+    const save = this.save(pending);
+    this.pendingSaves.add(save);
+    try {
+      await save;
+    } finally {
+      this.pendingSaves.delete(save);
+    }
   }
 
-  private async save(snapshot: SceneSnapshot): Promise<void> {
-    if (!this.file) {
-      return;
-    }
-    this.writing = true;
+  private async save(pending: PendingSave): Promise<void> {
+    this.writingFiles.add(pending.file);
     try {
-      const document = serializeAsJSON(snapshot.elements, snapshot.appState, snapshot.files, "local");
-      await this.app.vault.modify(this.file, document);
+      const document = serializeAsJSON(pending.snapshot.elements, pending.snapshot.appState, pending.snapshot.files, "local");
+      await this.app.vault.modify(pending.file, document);
     } catch (error) {
-      this.latestSnapshot = snapshot;
+      if (pending.file === this.activeFile && pending.file === this.file && !this.externalChangeDetected) {
+        this.latestSnapshot = pending;
+      }
       new Notice(`No se pudo guardar el dibujo: ${error instanceof Error ? error.message : "error desconocido"}`);
     } finally {
-      this.writing = false;
+      this.writingFiles.delete(pending.file);
     }
   }
 
-  private stopForExternalChange(): void {
-    if (this.externalChangeDetected) {
+  private stopForExternalChange(file: TFile): void {
+    if (this.externalChangeDetected || file !== this.activeFile) {
       return;
     }
     this.externalChangeDetected = true;
