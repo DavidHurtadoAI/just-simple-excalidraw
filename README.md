@@ -1,3 +1,8 @@
+> [!WARNING]
+> **Fixed in v0.1.6:** earlier versions could overwrite a drawing when switching
+> files in the same tab. Update to this version, and back up your `.excalidraw`
+> files before upgrading as a precaution.
+
 # Just Simple Excalidraw
 
 An intentionally small, local-first [Excalidraw](https://excalidraw.com/) editor

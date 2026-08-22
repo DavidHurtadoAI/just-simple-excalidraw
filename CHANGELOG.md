@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.6 - 2026-08-22
+
+- Fixed a critical data-loss bug that could overwrite a drawing with the scene
+  from a previously opened file when switching files in the same tab.
+- Added a regression test that verifies scenes and autosaves remain isolated
+  to their own files.
+
 ## 0.1.3 - 2026-08-20
 
 - Made npm and its committed `package-lock.json` the canonical reproducible
