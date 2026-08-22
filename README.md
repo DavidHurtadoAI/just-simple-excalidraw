@@ -2,6 +2,11 @@
 > files in the same tab. Update to this version, and back up your `.excalidraw`
 > files before upgrading as a precaution.
 
+> **Changed in v0.1.8:** reopening an already open drawing focuses its existing
+> tab instead of creating a second editor. Obsidian's **Split right** and
+> **Split down** commands are native pane actions; when used on a drawing, the
+> temporary duplicate pane closes again to keep a single editor for the file.
+
 # Just Simple Excalidraw
 
 An intentionally small, local-first [Excalidraw](https://excalidraw.com/) editor
@@ -113,6 +118,18 @@ Then enable **Just Simple Excalidraw** in Obsidian.
 Run **Create new Excalidraw drawing** from the command palette, or use the
 pencil ruler icon in the ribbon. The new file is created in the vault root
 using a timestamped `Drawing YYYY-MM-DD HH.MM.SS.excalidraw` name.
+
+### One drawing, one editor
+
+Each `.excalidraw` file is editable in one Obsidian tab at a time. Opening a
+drawing that is already open activates its existing tab. This prevents two
+editors from saving competing versions of the same file.
+
+Obsidian's pane menu also shows **Split right** and **Split down** for every
+tab. Those commands belong to Obsidian, not to this plugin, so they cannot be
+hidden only for drawings through the supported plugin API. If you use either
+command on a drawing, Obsidian may briefly create a new pane; the plugin then
+returns focus to the original drawing and closes the duplicate pane.
 
 ## Development
 
