@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.9 - 2026-08-27
+
+- Added support for Obsidian on phones and tablets.
+- Added a release audit that rejects desktop-only manifests and runtime Node.js
+  or Electron dependencies.
+
 ## 0.1.7 - 2026-08-22
 
 - Prevented stale asynchronous file loads from replacing the current canvas.
