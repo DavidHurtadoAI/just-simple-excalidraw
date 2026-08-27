@@ -23,6 +23,16 @@ const manifest = JSON.parse(manifestText);
 if (manifest.id !== "just-simple-excalidraw" || !manifest.version || !manifest.minAppVersion) {
   throw new Error("El manifest de distribución no contiene los metadatos mínimos esperados.");
 }
+if (manifest.isDesktopOnly !== false) {
+  throw new Error("El manifest de distribución debe habilitar el plugin en Obsidian móvil.");
+}
+const metadata = JSON.parse(metadataText);
+const externalRuntimeImports = [...new Set(Object.values(metadata.outputs).flatMap((output) =>
+  output.imports.filter((entry) => entry.external).map((entry) => entry.path)
+))];
+if (externalRuntimeImports.some((dependency) => dependency !== "obsidian")) {
+  throw new Error(`El bundle móvil contiene dependencias de ejecución no compatibles: ${externalRuntimeImports.join(", ")}.`);
+}
 if (main.includes("./fonts/") || styles.includes("./fonts/") || source.includes("EXCALIDRAW_ASSET_PATH")) {
   throw new Error("La distribución conserva una ruta de fuente local en vez de un recurso integrado.");
 }

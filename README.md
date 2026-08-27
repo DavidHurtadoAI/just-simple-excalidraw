@@ -7,6 +7,9 @@
 > **Split down** commands are native pane actions; when used on a drawing, the
 > temporary duplicate pane closes again to keep a single editor for the file.
 
+> **New in v0.1.9:** Just Simple Excalidraw is available on Obsidian mobile,
+> with the same local-first drawing files and autosave behavior as desktop.
+
 # Just Simple Excalidraw
 
 An intentionally small, local-first [Excalidraw](https://excalidraw.com/) editor
@@ -39,6 +42,7 @@ supports the people building Excalidraw.
 
 - Creates and opens native `.excalidraw` drawings from the command palette or
   the ribbon.
+- Runs on Obsidian desktop, phones, and tablets.
 - Uses the official Excalidraw editor with its standard drawing tools.
 - Saves automatically after a short pause and writes images into the drawing as
   embedded data, so a drawing stays self-contained.
