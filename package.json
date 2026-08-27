@@ -18,12 +18,12 @@
   },
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",
-    "react": "18.3.1",
+    "react": "19.2.8",
     "react-dom": "18.3.1"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
-    "@types/react": "^18.3.12",
+    "@types/react": "^19.2.18",
     "@types/react-dom": "^18.3.1",
     "esbuild": "^0.28.2",
     "obsidian": "^1.13.1",
