@@ -1,6 +1,7 @@
 import { access, readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertNoFirebaseCredentials } from "./excalidraw-environment.mjs";
 
 const projectDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const distDirectory = path.join(projectDirectory, "dist");
@@ -20,6 +21,8 @@ const [main, styles, manifestText, source, sourceStyles, metadataText] = await P
   readFile(path.join(projectDirectory, "build-meta.json"), "utf8")
 ]);
 const manifest = JSON.parse(manifestText);
+assertNoFirebaseCredentials(main);
+assertNoFirebaseCredentials(await readFile(path.join(projectDirectory, "main.js"), "utf8"));
 if (manifest.id !== "just-simple-excalidraw" || !manifest.version || !manifest.minAppVersion) {
   throw new Error("El manifest de distribución no contiene los metadatos mínimos esperados.");
 }

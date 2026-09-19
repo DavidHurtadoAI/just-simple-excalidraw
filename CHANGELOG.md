@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.10 - 2026-09-19
+
+- Removed the unused Firebase configuration and Google API key inherited from
+  the upstream Excalidraw package, which could trigger corporate secret scanners.
+- Added build regression tests and release checks to prevent Google API keys
+  or the unused Firebase configuration from reappearing in published bundles.
+
 ## 0.1.9 - 2026-08-27
 
 - Added support for Obsidian on phones and tablets.
