@@ -4,6 +4,7 @@ import path from "node:path";
 import { builtinModules } from "node:module";
 import { fileURLToPath } from "node:url";
 import { readFile, writeFile } from "node:fs/promises";
+import { removeUnusedFirebaseConfig } from "./scripts/excalidraw-environment.mjs";
 
 const production = process.argv[2] === "production";
 const projectDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,10 @@ const context = await esbuild.context({
   plugins: [{
     name: "remove-excalidraw-dynamic-error-constructor",
     setup(build) {
+      build.onLoad({ filter: /chunk-ZUYEQ4TG\.js$/ }, async (args) => ({
+        contents: removeUnusedFirebaseConfig(await readFile(args.path, "utf8")),
+        loader: "js"
+      }));
       build.onLoad({ filter: /chunk-EIO257PC\.js$/ }, async (args) => {
         const contents = await readFile(args.path, "utf8");
         if (!contents.includes(dynamicErrorConstructor) || !dynamicDynCallInvoker.test(contents)) {
