@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.11 - 2026-10-25
+
+- Add an optional custom handwriting font loaded from a vault-relative WOFF2, WOFF, TTF or OTF file up to 2 MB. Restart Obsidian after changing the font setting.
+- Validate the full font before use and fall back to bundled Excalifont for missing, invalid, oversized or outside-vault paths. Other devices need the same font file and setting; drawings remain standard Excalidraw JSON.
+- Follow changes to Obsidian's light/dark theme without replacing the drawing.
+- Update vulnerable sanitizer/source-map dependencies and compatible build/API dependencies while retaining the validated React 18 stack.
+- Keep the release below 5 MB with one bundled Latin fallback, no Mermaid, no remote font loading and the existing file-isolation/save protections.
+
+Validated with file-isolation and environment regressions, 124 theme assertions, 36 font startup/fallback checks, 19 font/build-adapter checks, release audit and real Obsidian drawing/font tests. No physical mobile device test was performed.
+
 ## 0.1.10 - 2026-09-19
 
 - Removed the unused Firebase configuration and Google API key inherited from
