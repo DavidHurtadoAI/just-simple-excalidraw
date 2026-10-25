@@ -14,9 +14,9 @@ const mocks = {
     }
     export class Plugin {
       registerView(type, factory) { globalThis.__themeViewFactory = factory; }
-      registerExtensions() {} addCommand() {} addRibbonIcon() {}
+      loadData() { return Promise.resolve(null); } addSettingTab() {} registerExtensions() {} addCommand() {} addRibbonIcon() {}
     }
-    export class Notice {} export class WorkspaceLeaf {}
+    export class PluginSettingTab {} export class Setting {} export const arrayBufferToBase64 = () => ""; export class Notice {} export class WorkspaceLeaf {}
     export const normalizePath = path => path;
   `,
   react: `
@@ -46,7 +46,7 @@ const mocks = {
 };
 const bundle = await build({
   absWorkingDir: projectDirectory, entryPoints: [resolve(projectDirectory, "main.ts")],
-  bundle: true, format: "esm", platform: "node", write: false,
+  banner: { js: "let __JSE_APPLY_CUSTOM_FONT__ = () => {};" }, bundle: true, format: "esm", platform: "node", write: false,
   plugins: [{ name: "theme-runtime", setup(builder) {
     builder.onResolve({ filter: /.*/ }, args => args.path in mocks ? { path: args.path, namespace: "mock" } : undefined);
     builder.onLoad({ filter: /.*/, namespace: "mock" }, args => ({ contents: mocks[args.path], loader: "js" }));

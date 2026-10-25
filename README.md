@@ -176,3 +176,9 @@ licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 Excalidraw is an independent open-source project. This plugin is not affiliated
 with or endorsed by Excalidraw.
+
+### Optional custom font
+
+Place a WOFF2, WOFF, TTF or OTF file (up to 2 MB) inside the vault. In **Settings → Just Simple Excalidraw → Custom handwriting font**, enter its vault-relative path, such as `Fonts/My font.woff2`, then restart Obsidian. It replaces the Excalifont handwriting face in existing and new text using that face. Clear the setting and restart to restore the bundled font. Missing, invalid or oversized fonts fall back to Excalifont with a notice.
+
+The font is loaded locally; no system paths or remote URLs are accepted. It is not embedded in each drawing: other devices need the font file and the same setting. Drawings remain standard Excalidraw JSON. Changing fonts can change text metrics, so keep settings consistent across devices. The release still bundles a single Latin fallback and remains below 5 MB.
