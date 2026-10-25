@@ -12,6 +12,9 @@
 
 # Just Simple Excalidraw
 
+> **Fixed in v0.1.10:** removed an unused upstream Firebase configuration and
+> Google API key from the bundled editor to avoid secret-scanner alerts.
+
 An intentionally small, local-first [Excalidraw](https://excalidraw.com/) editor
 for Obsidian that preserves the original's brilliant simplicity. It edits
 portable `.excalidraw` JSON files directly in the vault.
