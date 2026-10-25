@@ -22,7 +22,7 @@ async function inlineSingleFont(content) {
   if (!compacted.startsWith(strictDirective)) {
     throw new Error("No se ha encontrado el encabezado esperado del bundle.");
   }
-  const withFont = `${strictDirective}const __JSE_LATIN_FONT__=${JSON.stringify(dataUri)};${compacted.slice(strictDirective.length)}`;
+  const withFont = `${strictDirective}let __JSE_APPLY_CUSTOM_FONT__=()=>{};const __JSE_LATIN_FONT__=${JSON.stringify(dataUri)};${compacted.slice(strictDirective.length)}`;
   if (pattern.test(withFont)) {
     throw new Error("Quedan rutas de fuentes sin integrar.");
   }

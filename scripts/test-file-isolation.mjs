@@ -30,11 +30,11 @@ const mocks = {
       registerView(_type, factory) {
         globalThis.__testViewFactory = factory;
       }
-      registerExtensions() {}
+      loadData() { return Promise.resolve(null); } addSettingTab() {} registerExtensions() {}
       addCommand() {}
       addRibbonIcon() {}
     }
-    export class Notice {
+    export class PluginSettingTab {} export class Setting {} export const arrayBufferToBase64 = () => ""; export class Notice {
       constructor() {}
     }
     export class WorkspaceLeaf {
@@ -79,7 +79,7 @@ const mockedModules = new Set(Object.keys(mocks));
 const bundle = await build({
   absWorkingDir: projectDirectory,
   entryPoints: [resolve(projectDirectory, "main.ts")],
-  bundle: true,
+  banner: { js: "let __JSE_APPLY_CUSTOM_FONT__ = () => {};" }, bundle: true,
   format: "esm",
   platform: "node",
   write: false,

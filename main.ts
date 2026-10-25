@@ -1,11 +1,11 @@
-import { FileView, Notice, Plugin, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
+import { FileView, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf, arrayBufferToBase64, normalizePath } from "obsidian";
 import { createElement, useEffect, useState, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import {
-  Excalidraw,
-  serializeAsJSON,
-  THEME
-} from "@excalidraw/excalidraw";
+import { fontMime, setCustomFont } from "./src/custom-font";
+// Initialize the library only after reading the optional vault font. Its font
+// registry captures asset URIs on first initialization.
+let drawingLibrary: typeof import("@excalidraw/excalidraw");
+const THEME = { LIGHT: 'light', DARK: 'dark' } as const;
 import type {
   AppState,
   BinaryFiles,
@@ -32,7 +32,7 @@ type StoredScene = ExcalidrawInitialDataState & {
   files?: BinaryFiles;
 };
 
-type ExcalidrawCanvasProps = ComponentProps<typeof Excalidraw>;
+type ExcalidrawCanvasProps = ComponentProps<typeof import("@excalidraw/excalidraw").Excalidraw>;
 
 function emptyScene(): StoredScene {
   return { elements: [], appState: {}, files: {} };
@@ -81,7 +81,7 @@ function ExcalidrawCanvas({ initialData, ...props }: ExcalidrawCanvasProps) {
     return () => observer.disconnect();
   }, []);
 
-  return createElement(Excalidraw, {
+  return createElement(drawingLibrary.Excalidraw, {
     initialData,
     theme,
     detectScroll: false,
@@ -113,8 +113,35 @@ function ExcalidrawCanvas({ initialData, ...props }: ExcalidrawCanvasProps) {
 
 export default class JustSimpleExcalidrawPlugin extends Plugin {
   private readonly fileOwners = new Map<TFile, ExcalidrawView>();
+  fontPath = '';
+  fontError = '';
 
   async onload(): Promise<void> {
+    const saved: unknown = await this.loadData();
+    this.fontPath = isRecord(saved) && typeof saved.fontPath === 'string' ? saved.fontPath : '';
+    setCustomFont(undefined);
+    if (this.fontPath) {
+      try {
+        const path = normalizePath(this.fontPath.trim());
+        if (path.startsWith('/') || path.split('/').some(part => part === '..') || path.includes(':')) throw new Error('Use a font path relative to this vault.');
+        // Plugin onload can precede the vault index. The adapter also supports
+        // font extensions that Obsidian does not expose as TFiles.
+        const stat = await this.app.vault.adapter.stat(path);
+        if (stat?.type !== 'file' || stat.size > 2 * 1024 * 1024) throw new Error('Custom font not found in this vault, or larger than 2 MB.');
+        const bytes = await this.app.vault.adapter.readBinary(path);
+        const mime = fontMime(path, bytes);
+        // A matching header is insufficient: let the browser validate the full
+        // font before replacing the bundled face. Reuse the loaded face so the
+        // native font cache cannot render the first frame with a fallback.
+        const face = await new FontFace('Excalifont', bytes, { unicodeRange: 'U+0-10FFFF' }).load();
+        setCustomFont(`data:${mime};base64,${arrayBufferToBase64(bytes)}`, face);
+      } catch (error) {
+        this.fontError = error instanceof Error ? error.message : String(error);
+        new Notice(`Custom font could not be loaded; using Excalifont. ${this.fontError}`);
+      }
+    }
+    drawingLibrary = await import("@excalidraw/excalidraw");
+    this.addSettingTab(new ExcalidrawFontSettings(this.app, this));
     this.registerView(VIEW_TYPE_EXCALIDRAW, (leaf) => new ExcalidrawView(leaf, this));
     this.registerExtensions(["excalidraw"], VIEW_TYPE_EXCALIDRAW);
 
@@ -167,6 +194,22 @@ export default class JustSimpleExcalidrawPlugin extends Plugin {
 
   ownsFile(file: TFile, view: ExcalidrawView): boolean {
     return this.fileOwners.get(file) === view;
+  }
+}
+
+class ExcalidrawFontSettings extends PluginSettingTab {
+  constructor(app: Plugin['app'], private readonly plugin: JustSimpleExcalidrawPlugin) { super(app, plugin); }
+
+  display(): void {
+    this.containerEl.empty();
+    new Setting(this.containerEl)
+      .setName('Custom handwriting font')
+      .setDesc('Optional path to a WOFF2, WOFF, TTF or OTF file in this vault (up to 2 MB). Replaces Excalifont. Restart Obsidian after changing it. Leave empty to restore Excalifont. Other users need the same font setting.')
+      .addText(text => text.setPlaceholder('Fonts/My font.woff2').setValue(this.plugin.fontPath).onChange(async value => {
+        this.plugin.fontPath = value.trim();
+        const saved: unknown = await this.plugin.loadData();
+        await this.plugin.saveData({ ...(isRecord(saved) ? saved : {}), fontPath: this.plugin.fontPath });
+      }));
   }
 }
 
@@ -390,7 +433,7 @@ class ExcalidrawView extends FileView {
   private async save(pending: PendingSave): Promise<void> {
     this.writingFiles.add(pending.file);
     try {
-      const document = serializeAsJSON(pending.snapshot.elements, pending.snapshot.appState, pending.snapshot.files, "local");
+      const document = drawingLibrary.serializeAsJSON(pending.snapshot.elements, pending.snapshot.appState, pending.snapshot.files, "local");
       await this.app.vault.modify(pending.file, document);
     } catch (error) {
       if (pending.file === this.activeFile && pending.file === this.file && !this.externalChangeDetected) {

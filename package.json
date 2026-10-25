@@ -10,11 +10,11 @@
   },
   "type": "module",
   "scripts": {
-    "test": "node scripts/test-file-isolation.mjs && node scripts/test-excalidraw-environment.mjs && node scripts/test-theme.mjs",
+    "test": "node scripts/test-file-isolation.mjs && node scripts/test-excalidraw-environment.mjs && node scripts/test-theme.mjs && node scripts/test-font-loading.mjs",
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit && node esbuild.config.mjs production && node scripts/generate-third-party-notices.mjs && node scripts/copy-assets.mjs",
     "audit:release": "node scripts/audit-release.mjs",
-    "check": "npm test && npm run build && npm run audit:release"
+    "check": "npm test && npm run build && node scripts/test-custom-font.mjs && npm run audit:release"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",
