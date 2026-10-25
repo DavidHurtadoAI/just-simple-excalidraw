@@ -47,7 +47,7 @@ const mocks = {
   react: `
     export function createElement(type, props) { return { type, props: props ?? {} }; }
     export function useEffect(effect) { effect(); }
-    export function useState(value) { return [value, () => {}]; }
+    export function useState(value) { return [typeof value === "function" ? value() : value, () => {}]; }
   `,
   "react-dom/client": `
     export function createRoot() {

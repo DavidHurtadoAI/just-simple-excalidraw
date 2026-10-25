@@ -69,7 +69,9 @@ function formatDrawingName(now: Date): string {
 }
 
 function ExcalidrawCanvas({ initialData, ...props }: ExcalidrawCanvasProps) {
-  const [theme, setTheme] = useState<typeof THEME.LIGHT | typeof THEME.DARK>(THEME.LIGHT);
+  const [theme, setTheme] = useState<typeof THEME.LIGHT | typeof THEME.DARK>(() =>
+    document.body.classList.contains("theme-dark") ? THEME.DARK : THEME.LIGHT
+  );
 
   useEffect(() => {
     const updateTheme = (): void => setTheme(document.body.classList.contains("theme-dark") ? THEME.DARK : THEME.LIGHT);
@@ -298,7 +300,6 @@ class ExcalidrawView extends FileView {
     this.root.render(createElement(ExcalidrawCanvas, {
       key: file.path,
       initialData: scene,
-      theme: document.body.classList.contains("theme-dark") ? THEME.DARK : THEME.LIGHT,
       detectScroll: false,
       handleKeyboardGlobally: false,
       aiEnabled: false,
