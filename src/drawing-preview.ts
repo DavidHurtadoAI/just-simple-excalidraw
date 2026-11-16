@@ -95,6 +95,10 @@ class DrawingPreview extends Component {
     this.previews.add(this);
     this.container.addClass("jse-drawing-embed");
     this.button = this.container.createEl("button", { cls: "jse-drawing-preview", attr: { type: "button" } });
+    // Live Preview can reuse the native embed and only change its width attribute.
+    const sizeObserver = new MutationObserver(() => this.updateImageWidth());
+    sizeObserver.observe(this.container, { attributes: true, attributeFilter: ["width"] });
+    this.register(() => sizeObserver.disconnect());
     this.registerDomEvent(this.button, "click", event => {
       event.preventDefault();
       event.stopPropagation();
@@ -136,8 +140,7 @@ class DrawingPreview extends Component {
       const url = this.imageUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
       // Display the export in an image context, isolated from the note's DOM.
       const image = button.createEl("img", { attr: { alt: "", decoding: "async", draggable: "false" } });
-      const width = Number(this.container.getAttribute("width"));
-      if (width > 0 && width <= MAX_PREVIEW_SIDE) image.width = width;
+      this.updateImageWidth();
       image.onerror = () => {
         if (this.imageUrl !== url) return;
         this.revokeImage();
@@ -161,6 +164,14 @@ class DrawingPreview extends Component {
     this.button = null;
     this.container.removeClass("jse-drawing-embed");
     this.previews.delete(this);
+  }
+
+  private updateImageWidth(): void {
+    const image = this.button?.querySelector("img");
+    if (!image) return;
+    const width = Number(this.container.getAttribute("width"));
+    if (width > 0 && width <= MAX_PREVIEW_SIDE) image.width = width;
+    else image.removeAttribute("width");
   }
 
   private revokeImage(): void {
