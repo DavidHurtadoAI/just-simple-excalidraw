@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.12 - 2026-11-16
+
+- Show read-only previews of `![[drawing.excalidraw]]` in Reading view and Live Preview. Click or tap a preview to open the editor. Previews refresh when the drawing is saved or the theme changes.
+- Render previews locally in memory and show a message for empty or invalid drawings.
+- Thanks to [@andyherle](https://github.com/andyherle) for proposing the feature and sharing the working prototype in [#40](https://github.com/DavidHurtadoAI/just-simple-excalidraw/issues/40).
+
 ## 0.1.11 - 2026-10-25
 
 - Add an optional custom handwriting font loaded from a vault-relative WOFF2, WOFF, TTF or OTF file up to 2 MB. Restart Obsidian after changing the font setting.

@@ -3,6 +3,7 @@ import { build } from 'esbuild';
 
 const mocks = {
   obsidian: `
+    export class Component {}
     export class Plugin {
       constructor(){this.app=globalThis.fontApp;}
       async loadData(){return globalThis.fontSettings;}

@@ -7,6 +7,7 @@ const projectDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const mocks = {
   obsidian: `
+    export class Component {}
     export class TFile {
       constructor(path) {
         this.path = path;
