@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 const projectDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const mocks = {
   obsidian: `
+    export class Component {}
     export class TFile { constructor(path) { this.path = path; this.basename = path; } }
     globalThis.__themeTFile = TFile;
     export class FileView {
@@ -13,6 +14,7 @@ const mocks = {
       registerEvent() {}
     }
     export class Plugin {
+      constructor() { this.app = globalThis.__themeApp; }
       registerView(type, factory) { globalThis.__themeViewFactory = factory; }
       loadData() { return Promise.resolve(null); } addSettingTab() {} registerExtensions() {} addCommand() {} addRibbonIcon() {}
     }

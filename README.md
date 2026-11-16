@@ -54,7 +54,7 @@ supports the people building Excalidraw.
 - Reports malformed drawings without changing the original file.
 - Follows Obsidian's light and dark theme.
 
-It deliberately does **not** add Markdown embedding, OCR, AI, collaboration,
+It deliberately does **not** add OCR, AI, collaboration,
 cloud sync, a drawing library, an account, or an export workflow. Those are
 valuable features in other tools; they are outside this plugin's purpose. The
 lean build also excludes Mermaid-to-Excalidraw conversion, web embeds, and the
@@ -88,8 +88,8 @@ Just Simple Excalidraw is local-first by design.
 
 - **Network:** it makes no runtime network requests. Its one bundled Latin font
   subset and all editor code are included in the release.
-- **Vault files:** it reads and writes only the `.excalidraw` file you open or
-  create in the vault.
+- **Vault files:** it reads the `.excalidraw` files you open or embed and writes
+  drawings you create or edit. Drawing previews are generated in memory.
 - **Clipboard:** standard copy and paste actions, including pasting an image,
   run only after you invoke them. The plugin does not read the clipboard in the
   background.
@@ -125,6 +125,13 @@ Then enable **Just Simple Excalidraw** in Obsidian.
 Run **Create new Excalidraw drawing** from the command palette, or use the
 pencil ruler icon in the ribbon. The new file is created in the vault root
 using a timestamped `Drawing YYYY-MM-DD HH.MM.SS.excalidraw` name.
+
+### Preview drawings in notes
+
+Embed a drawing with `![[drawing.excalidraw]]` in Reading view or Live Preview.
+Use `![[drawing.excalidraw|400]]` to set its width in pixels. Click or tap the
+preview to open the drawing in the editor. It updates when the drawing is saved
+and follows Obsidian's light or dark theme.
 
 ### One drawing, one editor
 
