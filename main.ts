@@ -3,6 +3,7 @@ import { createElement, useEffect, useState, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { fontMime, setCustomFont } from "./src/custom-font";
 import { registerDrawingPreviews } from "./src/drawing-preview";
+import { editableImageMime, exportEditableImage, requireEmbeddedFiles, type EditableImage } from "./src/editable-image";
 // Initialize the library only after reading the optional vault font. Its font
 // registry captures asset URIs on first initialization.
 let drawingLibrary: typeof import("@excalidraw/excalidraw");
@@ -10,6 +11,7 @@ const THEME = { LIGHT: 'light', DARK: 'dark' } as const;
 import type {
   AppState,
   BinaryFiles,
+  ExcalidrawImperativeAPI,
   ExcalidrawInitialDataState
 } from "@excalidraw/excalidraw/types";
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
@@ -146,6 +148,12 @@ export default class JustSimpleExcalidrawPlugin extends Plugin {
     this.registerView(VIEW_TYPE_EXCALIDRAW, (leaf) => new ExcalidrawView(leaf, this));
     this.registerExtensions(["excalidraw"], VIEW_TYPE_EXCALIDRAW);
     registerDrawingPreviews(this, drawingLibrary, isStoredScene);
+    this.registerEvent(this.app.workspace.on("file-menu", (menu, file) => {
+      if (file instanceof TFile && editableImageMime(file.name)) {
+        menu.addItem(item => item.setTitle("Open in Just Simple Excalidraw").setIcon("pencil-ruler")
+          .onClick(() => void this.openEditableImage(file)));
+      }
+    }));
 
     this.addCommand({
       id: "new-excalidraw-drawing",
@@ -173,6 +181,19 @@ export default class JustSimpleExcalidrawPlugin extends Plugin {
     }, null, 2));
     await this.app.workspace.getLeaf("tab").openFile(file);
     return file;
+  }
+
+  private async openEditableImage(file: TFile): Promise<void> {
+    const owner = this.getFileOwner(file);
+    if (owner) {
+      owner.activate();
+      return;
+    }
+    await this.app.workspace.getLeaf("tab").setViewState({
+      type: VIEW_TYPE_EXCALIDRAW,
+      state: { file: file.path },
+      active: true
+    });
   }
 
   claimFile(file: TFile, view: ExcalidrawView): boolean {
@@ -225,6 +246,7 @@ class ExcalidrawView extends FileView {
   private readonly writingFiles = new Set<TFile>();
   private externalChangeDetected = false;
   private readonly pendingSaves = new Set<Promise<void>>();
+  private imageSave: Promise<void> | null = null;
 
   constructor(readonly leaf: WorkspaceLeaf, private readonly plugin: JustSimpleExcalidrawPlugin) {
     super(leaf);
@@ -241,7 +263,6 @@ class ExcalidrawView extends FileView {
   async onOpen(): Promise<void> {
     this.contentEl.empty();
     this.contentEl.addClass("just-simple-excalidraw-view");
-    this.root = createRoot(this.contentEl);
     this.registerEvent(this.app.vault.on("modify", (file) => {
       if (file instanceof TFile && file === this.activeFile && !this.writingFiles.has(file)) {
         this.stopForExternalChange(file);
@@ -254,6 +275,8 @@ class ExcalidrawView extends FileView {
     const previousFile = this.activeFile;
     if (previousFile) {
       await this.flushSave(previousFile);
+      await this.imageSave;
+      if (this.loadGeneration !== loadGeneration) return;
       if (previousFile !== file) {
         this.plugin.releaseFile(previousFile, this);
       }
@@ -274,27 +297,34 @@ class ExcalidrawView extends FileView {
     this.ownsActiveFile = this.plugin.claimFile(file, this);
     this.externalChangeDetected = false;
     this.latestSnapshot = null;
-    this.recreateRoot();
+    this.unmountRoot();
+    this.contentEl.empty();
 
+    const mime = editableImageMime(file.name);
     try {
-      const parsed = JSON.parse(await this.app.vault.cachedRead(file)) as unknown;
+      const image = mime ? { mime, bytes: await this.app.vault.readBinary(file) } : null;
+      const parsed: unknown = image
+        ? await drawingLibrary.loadFromBlob(new Blob([image.bytes], { type: image.mime }), null, null)
+        : JSON.parse(await this.app.vault.cachedRead(file));
       if (!this.isCurrentLoad(file, loadGeneration)) {
         return;
       }
       if (!isStoredScene(parsed)) {
         throw new Error("El archivo no contiene una escena Excalidraw válida.");
       }
-      this.renderCanvas(file, parsed);
+      if (image) requireEmbeddedFiles(parsed.files ?? {});
+      this.renderCanvas(file, parsed, image, loadGeneration);
     } catch (error) {
       if (!this.isCurrentLoad(file, loadGeneration)) {
         return;
       }
-      this.renderCorruptFileError(error instanceof Error ? error.message : "JSON inválido.");
+      this.renderCorruptFileError(error instanceof Error ? error.message : "Formato inválido.", mime !== null);
     }
   }
 
   async onUnloadFile(file: TFile): Promise<void> {
     await this.flushSave(file);
+    await this.imageSave;
     if (this.activeFile === file) {
       this.loadGeneration += 1;
       this.plugin.releaseFile(file, this);
@@ -308,6 +338,7 @@ class ExcalidrawView extends FileView {
   async onClose(): Promise<void> {
     await this.flushSave(this.activeFile);
     await Promise.all([...this.pendingSaves]);
+    await this.imageSave;
     this.loadGeneration += 1;
     if (this.activeFile) {
       this.plugin.releaseFile(this.activeFile, this);
@@ -326,25 +357,27 @@ class ExcalidrawView extends FileView {
       this.ownsActiveFile && this.plugin.ownsFile(file, this);
   }
 
-  private recreateRoot(): void {
-    this.unmountRoot();
-    this.contentEl.empty();
-    this.root = createRoot(this.contentEl);
-  }
-
   private unmountRoot(): void {
     this.root?.unmount();
     this.root = null;
   }
 
-  private renderCanvas(file: TFile, scene: StoredScene): void {
-    if (!this.root) {
-      return;
+  private renderCanvas(file: TFile, scene: StoredScene, image: EditableImage | null, loadGeneration: number): void {
+    let container = this.contentEl;
+    let onApiReady: ExcalidrawCanvasProps["excalidrawAPI"];
+    if (image) {
+      const editor = container.createDiv({ cls: "jse-image-editor" });
+      const toolbar = editor.createDiv({ cls: "jse-image-toolbar" });
+      const button = toolbar.createEl("button", { text: "Save image", attr: { type: "button" } });
+      onApiReady = this.bindImageSaveButton(button, file, image, loadGeneration);
+      container = editor.createDiv({ cls: "jse-image-canvas" });
     }
 
+    this.root = createRoot(container);
     this.root.render(createElement(ExcalidrawCanvas, {
       key: file.path,
       initialData: scene,
+      excalidrawAPI: onApiReady,
       detectScroll: false,
       handleKeyboardGlobally: false,
       aiEnabled: false,
@@ -374,16 +407,76 @@ class ExcalidrawView extends FileView {
         }
         return false;
       },
-      onChange: (elements: readonly OrderedExcalidrawElement[], appState: AppState, files: BinaryFiles): void => {
+      onChange: image ? undefined : (elements, appState, files): void => {
         this.queueSave(file, { elements, appState, files });
       }
     }));
   }
 
-  private renderCorruptFileError(message: string): void {
+  private bindImageSaveButton(button: HTMLButtonElement, file: TFile, image: EditableImage, loadGeneration: number): (api: ExcalidrawImperativeAPI) => void {
+    let api: ExcalidrawImperativeAPI | undefined;
+    button.disabled = true;
+    button.addEventListener("click", () => {
+      if (!api || api.getAppState().isLoading || this.imageSave ||
+          !this.isCurrentLoad(file, loadGeneration) || this.externalChangeDetected) return;
+      button.disabled = true;
+      button.textContent = "Saving…";
+      this.imageSave = this.saveImage(file, image, loadGeneration, api).finally(() => {
+        this.imageSave = null;
+        button.textContent = "Save image";
+        button.disabled = this.externalChangeDetected;
+      });
+    });
+    return (readyApi) => {
+      api = readyApi;
+      button.disabled = this.externalChangeDetected;
+    };
+  }
+
+  private async saveImage(file: TFile, image: EditableImage, loadGeneration: number, api: ExcalidrawImperativeAPI): Promise<void> {
+    try {
+      const files = { ...api.getFiles() };
+      const oversized = Object.values(files).find(item => imageByteLength(item.dataURL) > MAX_IMAGE_BYTES);
+      if (oversized) throw new Error(`Una imagen supera el límite de ${MAX_IMAGE_BYTES / 1024 / 1024} MB.`);
+      const bytes = await exportEditableImage(drawingLibrary, image.mime, {
+        elements: structuredClone(api.getSceneElements()),
+        backgroundColor: api.getAppState().viewBackgroundColor,
+        files
+      });
+      if (!this.isCurrentLoad(file, loadGeneration) || this.externalChangeDetected) return;
+
+      const current = await this.app.vault.readBinary(file);
+      if (!this.isCurrentLoad(file, loadGeneration) || this.externalChangeDetected) return;
+      const original = new Uint8Array(image.bytes);
+      if (editableImageMime(file.name) !== image.mime || current.byteLength !== original.length ||
+          new Uint8Array(current).some((byte, index) => byte !== original[index])) {
+        this.stopForExternalChange(file);
+        return;
+      }
+
+      this.writingFiles.add(file);
+      try {
+        await this.app.vault.modifyBinary(file, bytes);
+        image.bytes = bytes;
+      } finally {
+        this.writingFiles.delete(file);
+      }
+      new Notice("Image saved.");
+    } catch (error) {
+      new Notice(`No se pudo guardar la imagen: ${error instanceof Error ? error.message : "error desconocido"}`);
+    }
+  }
+
+  private renderCorruptFileError(message: string, image: boolean): void {
     this.unmountRoot();
     this.contentEl.empty();
     const panel = this.contentEl.createDiv({ cls: "just-simple-excalidraw-error" });
+    if (image) {
+      panel.createEl("h3", { text: "No se puede editar esta imagen" });
+      panel.createEl("p", { text: "Se necesita un SVG o PNG con una escena de Excalidraw incrustada." });
+      panel.createEl("pre", { text: message });
+      return;
+    }
     panel.createEl("h3", { text: "No se puede abrir este dibujo" });
     panel.createEl("p", { text: "El JSON parece estar dañado. El archivo original no se ha modificado." });
     panel.createEl("pre", { text: message });
@@ -456,7 +549,13 @@ class ExcalidrawView extends FileView {
       window.clearTimeout(this.autosaveTimer);
       this.autosaveTimer = null;
     }
-    new Notice("El archivo cambió fuera de esta vista. El autoguardado se ha detenido; cierra y vuelve a abrir la pestaña para cargar la versión nueva.", 0);
+    const button = this.contentEl.querySelector<HTMLButtonElement>(".jse-image-toolbar button");
+    if (button) {
+      button.disabled = true;
+      new Notice("La imagen cambió fuera de esta vista. Vuelve a abrirla para editar la versión nueva.", 0);
+    } else {
+      new Notice("El archivo cambió fuera de esta vista. El autoguardado se ha detenido; cierra y vuelve a abrir la pestaña para cargar la versión nueva.", 0);
+    }
   }
 
 }

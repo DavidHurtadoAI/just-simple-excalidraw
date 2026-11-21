@@ -7,7 +7,7 @@ const mocks = {
     export class Plugin {
       constructor(){this.app=globalThis.fontApp;}
       async loadData(){return globalThis.fontSettings;}
-      registerView(){} registerExtensions(){} addCommand(){} addRibbonIcon(){} addSettingTab(){}
+      registerView(){} registerExtensions(){} addCommand(){} addRibbonIcon(){} addSettingTab(){} registerEvent(){}
     }
     export class FileView {} export class PluginSettingTab {} export class Setting {}
     export class TFile {} export class WorkspaceLeaf {}
@@ -43,7 +43,7 @@ for(const scenario of [
   globalThis.fontSettings={fontPath:scenario.path};globalThis.fontNotices=[];globalThis.rejectFont=!!scenario.reject;
   let reads=0;
   // Intentionally no getAbstractFileByPath: this runs before the index exists.
-  globalThis.fontApp={vault:{adapter:{
+  globalThis.fontApp={workspace:{on(){}},vault:{adapter:{
     async stat(){return scenario.missing?null:{type:'file',size:scenario.size??bytes.byteLength};},
     async readBinary(){reads++;return bytes;}
   }}};
