@@ -7,7 +7,7 @@ const projectDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const mocks = {
   obsidian: `
     export class Component {}
-    export class TFile { constructor(path) { this.path = path; this.basename = path; } }
+    export class TFile { constructor(path) { this.path = path; this.name = path; this.basename = path; } }
     globalThis.__themeTFile = TFile;
     export class FileView {
       constructor(leaf) { this.leaf = leaf; this.app = globalThis.__themeApp; this.contentEl = {empty(){},addClass(){}}; }
@@ -16,7 +16,7 @@ const mocks = {
     export class Plugin {
       constructor() { this.app = globalThis.__themeApp; }
       registerView(type, factory) { globalThis.__themeViewFactory = factory; }
-      loadData() { return Promise.resolve(null); } addSettingTab() {} registerExtensions() {} addCommand() {} addRibbonIcon() {}
+      loadData() { return Promise.resolve(null); } addSettingTab() {} registerExtensions() {} addCommand() {} addRibbonIcon() {} registerEvent() {}
     }
     export class PluginSettingTab {} export class Setting {} export const arrayBufferToBase64 = () => ""; export class Notice {} export class WorkspaceLeaf {}
     export const normalizePath = path => path;
@@ -62,7 +62,7 @@ globalThis.MutationObserver = class {
   observe() { connected++; globalThis.__themeObserver = this; }
   disconnect() { connected--; }
 };
-globalThis.__themeApp = { vault: { on() {}, async cachedRead() { return JSON.stringify({elements:[],appState:{},files:{}}); } } };
+globalThis.__themeApp = { workspace: { on() {} }, vault: { on() {}, async cachedRead() { return JSON.stringify({elements:[],appState:{},files:{}}); } } };
 const { default: Plugin } = await import(`data:text/javascript,${encodeURIComponent(bundle.outputFiles[0].text)}`);
 const plugin = new Plugin();
 await plugin.onload();

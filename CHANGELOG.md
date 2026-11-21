@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.13 - 2026-11-21
+
+- Open `.excalidraw.svg` and `.excalidraw.png` files with embedded scenes from the file context menu.
+- Use **Save image** to update the same file with the edited scene and a fresh image. The saved files can still be embedded as images in notes.
+- Protect the original if the image changes outside the editor or the export fails.
+- Thanks to [@aarongilly](https://github.com/aarongilly) for proposing this in [#42](https://github.com/DavidHurtadoAI/just-simple-excalidraw/issues/42).
+
 ## 0.1.12 - 2026-11-16
 
 - Show read-only previews of `![[drawing.excalidraw]]` in Reading view and Live Preview. Click or tap a preview to open the editor. Previews refresh when the drawing is saved or the theme changes.

@@ -4,8 +4,27 @@
   padding: 0;
 }
 
-.just-simple-excalidraw-view > .excalidraw {
+.just-simple-excalidraw-view > .excalidraw,
+.jse-image-canvas > .excalidraw {
   height: 100%;
+}
+
+.jse-image-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.jse-image-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--size-4-2);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.jse-image-canvas {
+  flex: 1;
+  min-height: 0;
 }
 
 /*

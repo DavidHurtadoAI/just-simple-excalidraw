@@ -126,6 +126,16 @@ Run **Create new Excalidraw drawing** from the command palette, or use the
 pencil ruler icon in the ribbon. The new file is created in the vault root
 using a timestamped `Drawing YYYY-MM-DD HH.MM.SS.excalidraw` name.
 
+### Edit an exported SVG or PNG
+
+Export a drawing from Excalidraw with "Embed scene" enabled and keep its
+`.excalidraw.svg` or `.excalidraw.png` suffix. In Obsidian's file explorer,
+open the file's context menu and choose **Open in Just Simple Excalidraw**.
+Click **Save image** to update the same file with the edited drawing and its
+embedded scene. Standard clicks and note embeds display the file as an image.
+PNG exports are limited to 4096 pixels on the longest side. Publishing a saved
+file also publishes its editable scene.
+
 ### Preview drawings in notes
 
 Embed a drawing with `![[drawing.excalidraw]]` in Reading view or Live Preview.

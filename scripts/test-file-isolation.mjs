@@ -11,7 +11,8 @@ const mocks = {
     export class TFile {
       constructor(path) {
         this.path = path;
-        this.basename = path.split("/").pop().replace(/\\.excalidraw$/, "");
+        this.name = path.split("/").pop();
+        this.basename = this.name.replace(/\\.excalidraw$/, "");
       }
     }
     globalThis.__testTFile = TFile;
@@ -34,6 +35,7 @@ const mocks = {
       loadData() { return Promise.resolve(null); } addSettingTab() {} registerExtensions() {}
       addCommand() {}
       addRibbonIcon() {}
+      registerEvent() {}
     }
     export class PluginSettingTab {} export class Setting {} export const arrayBufferToBase64 = () => ""; export class Notice {
       constructor() {}
@@ -73,6 +75,13 @@ const mocks = {
     export function serializeAsJSON(elements, appState, files) {
       return JSON.stringify({ elements, appState, files });
     }
+    export async function loadFromBlob(blob) {
+      return JSON.parse(await blob.text());
+    }
+    export async function exportToBlob(options) {
+      await globalThis.__delayImageExport;
+      return new Blob([JSON.stringify(options)], { type: options.mimeType });
+    }
   `
 };
 
@@ -111,6 +120,7 @@ const files = new Map([
 ]);
 const writes = [];
 const delayedReads = new Map();
+const images = new Map();
 
 globalThis.document = { body: { classList: { contains: () => false } } };
 globalThis.window = globalThis;
@@ -119,10 +129,18 @@ globalThis.MutationObserver = class {
   disconnect() {}
 };
 globalThis.__testContentEl = {
-  empty() {},
+  empty() { this.saveButton = null; },
   addClass() {},
+  querySelector() { return this.saveButton; },
   createDiv() {
-    return { createEl() { return { addEventListener() {} }; } };
+    return {
+      createDiv: () => this.createDiv(),
+      createEl: (_tag, options) => {
+        const element = { addEventListener(_type, listener) { this.click = listener; } };
+        if (options?.text === "Save image") this.saveButton = element;
+        return element;
+      }
+    };
   }
 };
 globalThis.__renderedCanvases = [];
@@ -133,10 +151,16 @@ globalThis.__testApp = {
     async modify(file, document) {
       writes.push({ path: file.path, document });
       files.set(file.path, document);
+    },
+    async readBinary(file) { return images.get(file.path); },
+    async modifyBinary(file, bytes) {
+      writes.push({ path: file.path, bytes });
+      images.set(file.path, bytes);
     }
   },
   workspace: {
-    getLeaf() { throw new Error("Not used by this test."); },
+    on(_name, listener) { this.fileMenu = listener; },
+    getLeaf() { return { setViewState: async (state) => { this.openedState = state; } }; },
     setActiveLeaf(leaf, options) { globalThis.__activeLeaf = { leaf, options }; }
   }
 };
@@ -235,5 +259,48 @@ view.file = malformedFile;
 await view.onLoadFile(malformedFile);
 assert.equal(globalThis.__renderedCanvases.length, canvasesBeforeMalformedFile, "Malformed scene data must not mount an editable canvas.");
 await view.onUnloadFile(malformedFile);
+
+const { workspace } = globalThis.__testApp;
+const menuItems = [];
+const menu = { addItem(configure) {
+  configure({ setTitle(title) { this.title = title; return this; }, setIcon() { return this; }, onClick(open) { menuItems.push({ title: this.title, open }); } });
+} };
+const image = new globalThis.__testTFile("Image.EXCALIDRAW.PNG");
+workspace.fileMenu(menu, new globalThis.__testTFile("plain.png"));
+workspace.fileMenu(menu, image);
+assert.deepEqual(menuItems.map(item => item.title), ["Open in Just Simple Excalidraw"]);
+menuItems[0].open();
+assert.deepEqual(workspace.openedState, { type: "just-simple-excalidraw-view", state: { file: image.path }, active: true });
+
+const initialImage = new TextEncoder().encode(JSON.stringify({ elements: [], appState: {}, files: {} })).buffer;
+images.set(image.path, initialImage);
+view.file = image;
+await view.onLoadFile(image);
+const imageCanvas = globalThis.__renderedCanvases.at(-1);
+const saveButton = globalThis.__testContentEl.saveButton;
+imageCanvas.excalidrawAPI({
+  getSceneElements: () => [{ id: "edited-image", type: "rectangle" }],
+  getAppState: () => ({ viewBackgroundColor: "#ffffff" }),
+  getFiles: () => ({})
+});
+assert.equal(imageCanvas.onChange, undefined, "Image editors must not autosave.");
+assert.equal(images.get(image.path), initialImage);
+saveButton.click();
+await view.imageSave;
+const savedImage = JSON.parse(new TextDecoder().decode(images.get(image.path)));
+assert.equal(savedImage.elements[0].id, "edited-image");
+assert.equal(savedImage.appState.exportEmbedScene, true);
+assert.equal(savedImage.mimeType, "image/png");
+
+let finishExport;
+globalThis.__delayImageExport = new Promise(resolve => { finishExport = resolve; });
+saveButton.click();
+const previousWriteCount = writes.length;
+images.set(image.path, initialImage);
+finishExport();
+await view.imageSave;
+assert.equal(writes.length, previousWriteCount, "An image changed externally during export must not be overwritten.");
+assert.equal(saveButton.disabled, true);
+await view.onUnloadFile(image);
 
 console.log("File isolation regression test passed.");
